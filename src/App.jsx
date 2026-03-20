@@ -234,38 +234,6 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("af_tok", JSON.stringify(tok)); } catch {} }, [tok]);
   useEffect(() => { try { localStorage.setItem("af_daily", JSON.stringify(daily)); } catch {} }, [daily]);
 
-  // Mouse tracker for parallax
-  useEffect(() => {
-    const h = (e) => setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
-    window.addEventListener("mousemove", h);
-    return () => window.removeEventListener("mousemove", h);
-  }, []);
-
-  const notify = useCallback((m, t = "info") => { setToast({ m, t }); setTimeout(() => setToast(null), 3500); }, []);
-
-  const freeLeft = useCallback(() => {
-    if (daily.d !== today()) return FREE_DAILY;
-    return Math.max(0, FREE_DAILY - daily.u);
-  }, [daily]);
-
-  const log = useCallback((a, c, n) => setTLog(p => [{ id: Date.now(), a, c, n, t: new Date().toLocaleString("tr-TR") }, ...p].slice(0, 80)), []);
-
-  const spend = useCallback((amt, act) => {
-    const t = today();
-    let d = daily.d === t ? { ...daily } : { d: t, u: 0 };
-    if (d.u < FREE_DAILY && (act === "build" || act === "edit")) {
-      d = { ...d, u: d.u + 1 };
-      setDaily(d);
-      log(act, 0, `Ücretsiz (${d.u}/${FREE_DAILY})`);
-      return true;
-    }
-    if (tokRef.current < amt) { notify("Yetersiz kredi! Lütfen kredi yükleyin.", "error"); setShowPrice(true); return false; }
-    setTok(p => p - amt);
-    log(act, amt, `${amt} kredi kullanıldı`);
-    return true;
-  }, [daily, log, notify]);
-
-  // ── Build ──
   const build = useCallback(async (pr, edit = false) => {
     if (!spend(edit ? COSTS.edit : COSTS.build, edit ? "edit" : "build")) return;
     setGen(true); setTestRes(null);
