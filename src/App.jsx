@@ -43,7 +43,7 @@ const TEMPLATES = [
 ];
 
 // ─── AI CALL (Backend proxy üzerinden — key güvende) ───
-async function callAI(system, messages, maxTokens = 4000) {
+async function callAI(system, messages, maxTokens = 8000) {
   const res = await fetch("/api/ai", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -124,8 +124,8 @@ export default function App() {
   const [steps, setSteps] = useState([]);
   const [hist, setHist] = useState([]);
   const [editTxt, setEditTxt] = useState("");
-  const [projs, setProjs] = useState(() => { try { const v = localStorage.getItem("af_projs"); return v ? JSON.parse(v) : []; } catch { return []; } });
-  const [actProj, setActProj] = useState(() => { try { const p = localStorage.getItem("af_projs"); const projs = p ? JSON.parse(p) : []; return projs.length > 0 ? projs[0].id : null; } catch { return null; } });
+  const [projs, setProjs] = useState([]);
+  const [actProj, setActProj] = useState(null);
   const [side, setSide] = useState(true);
   const [codeV, setCodeV] = useState(false);
   const [tok, setTok] = useState(0);
@@ -142,10 +142,6 @@ export default function App() {
   const iframe = useRef(null);
   const tokRef = useRef(tok);
   tokRef.current = tok;
-
-  // Persist to localStorage
-  useEffect(() => { localStorage.setItem("af_projs", JSON.stringify(projs)); }, [projs]);
-  useEffect(() => { localStorage.setItem("af_tok", JSON.stringify(tok)); }, [tok]);
 
   // Mouse tracker for parallax
   useEffect(() => {
@@ -183,29 +179,18 @@ export default function App() {
     if (!spend(edit ? COSTS.edit : COSTS.build, edit ? "edit" : "build")) return;
     setGen(true); setTestRes(null);
     const labels = edit
-      ? ["Değişiklikler analiz ediliyor...", "Mevcut kod inceleniyor...", "Güncellemeler uygulanıyor...", "Son rötuşlar yapılıyor..."]
+      ? ["Değişiklikler analiz ediliyor...", "Kod güncelleniyor...", "Test ediliyor...", "Tamamlanıyor..."]
       : ["İstek yorumlanıyor...", "Mimari oluşturuluyor...", "Bileşenler kodlanıyor...", "Stiller uygulanıyor...", "Optimize ediliyor..."];
     setSteps(labels.map(l => ({ l, d: false })));
     const msgs = edit
       ? [...hist, { role: "user", content: `Güncelle: ${pr}\n\nMevcut:\n${code}\n\nTam HTML döndür.` }]
       : [{ role: "user", content: pr }];
     try {
-      // AI isteği başlat (beklemeden)
-      const aiPromise = callAI(SYS_BUILD, msgs);
-
-      // İlk N-1 adımı zamanlanmış şekilde tamamla
-      const preSteps = labels.length - 1;
-      const stepDelay = edit ? 1800 : 2200; // her adım arası ms
-      for (let i = 0; i < preSteps; i++) {
-        await new Promise(r => setTimeout(r, stepDelay + Math.random() * 600));
-        setSteps(p => p.map((s, j) => j === i ? { ...s, d: true } : s));
+      for (let i = 0; i < labels.length; i++) {
+        await new Promise(r => setTimeout(r, 450 + Math.random() * 400));
+        setSteps(p => p.map((s, j) => j <= i ? { ...s, d: true } : s));
       }
-
-      // Son adım AI bitene kadar bekle
-      let c = await aiPromise;
-      setSteps(p => p.map((s, j) => j === labels.length - 1 ? { ...s, d: true } : s));
-      await new Promise(r => setTimeout(r, 400));
-
+      let c = await callAI(SYS_BUILD, msgs);
       c = c.replace(/^```html?\n?/i, "").replace(/\n?```$/g, "").trim();
       if (!c.startsWith("<!DOCTYPE") && !c.startsWith("<html")) { const i = c.indexOf("<!DOCTYPE"); if (i > -1) c = c.substring(i); }
       setCode(c); setHist([...msgs, { role: "assistant", content: c }]);
@@ -474,28 +459,100 @@ export default function App() {
   );
 
   // ════════════════════════════════════════
-  // GENERATING
+  // GENERATING — Chat UI
   // ════════════════════════════════════════
+  const AI_MSGS = [
+    { icon:"🧠", title:"İstek analiz ediliyor", detail:"Doğal dil işleme ile tam olarak ne istediğinizi anlıyorum." },
+    { icon:"🏗️", title:"Mimari tasarlanıyor", detail:"Bileşen yapısı, state yönetimi ve veri akışı planlanıyor." },
+    { icon:"⚡", title:"Bileşenler kodlanıyor", detail:"UI elementleri, formlar ve interaktif öğeler yazılıyor." },
+    { icon:"🎨", title:"Tasarım uygulanıyor", detail:"CSS animasyonları, renkler ve responsive layout ekleniyor." },
+    { icon:"🔧", title:"Son optimizasyonlar", detail:"Performans, erişilebilirlik ve tarayıcı uyumluluğu kontrol ediliyor." },
+  ];
+
   if (gen) return (
-    <div style={{ minHeight:"100vh", background:"var(--b1)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <style>{G}</style><Toast /><Orbs />
-      <div style={{ textAlign:"center", maxWidth:380, animation:"fadeUp .5s ease", position:"relative", zIndex:1 }}>
-        {/* Animated rings */}
-        <div style={{ position:"relative", width:100, height:100, margin:"0 auto 32px" }}>
-          <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"3px solid var(--br)", borderTopColor:"var(--ac)", animation:"spin 1.2s linear infinite" }} />
-          <div style={{ position:"absolute", inset:8, borderRadius:"50%", border:"2px solid var(--br)", borderBottomColor:"var(--ac2)", animation:"spin 1.8s linear infinite reverse" }} />
-          <div style={{ position:"absolute", inset:18, borderRadius:"50%", border:"2px solid var(--br)", borderLeftColor:"var(--ac3)", animation:"spin 2.5s linear infinite" }} />
-          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24 }}>⚡</div>
+    <div style={{ minHeight:"100vh", background:"var(--b1)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <style>{G + `
+        @keyframes msgIn { from{opacity:0;transform:translateY(16px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes scanLine { from{top:0} to{top:100%} }
+        @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-8px)} }
+        .cmsg { animation: msgIn .5s cubic-bezier(.34,1.4,.64,1) both; }
+      `}</style>
+      <Toast /><Orbs />
+
+      {/* Top bar */}
+      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:100, padding:"11px 28px", display:"flex", justifyContent:"space-between", alignItems:"center", background:"rgba(6,6,10,.9)", backdropFilter:"blur(24px)", borderBottom:"1px solid var(--br)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:10, background:"linear-gradient(135deg,var(--ac),var(--ac2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, animation:"glow 3s ease infinite" }}>⚡</div>
+          <span style={{ fontSize:16, fontWeight:700 }}>AppForge<span style={{ background:"linear-gradient(135deg,var(--ac),var(--ac2))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>.ai</span></span>
         </div>
-        <h2 style={{ fontSize:22, fontWeight:700, marginBottom:8, background:"linear-gradient(135deg,var(--ac),var(--ac2))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Oluşturuluyor</h2>
-        <p style={{ fontSize:13, color:"var(--t3)", marginBottom:24 }}>Yapay zeka uygulamanızı kodluyor…</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:10, textAlign:"left" }}>
-          {steps.map((s, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:10, animation:`fadeUp .4s ease ${i * .1}s both` }}>
-              <div style={{ width:24, height:24, borderRadius:8, background: s.d ? "var(--g1s)" : "var(--b3)", border:`1.5px solid ${s.d ? "var(--g1)" : "var(--br)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color: s.d ? "var(--g1)" : "var(--t3)", transition:"all .3s" }}>{s.d ? "✓" : <span style={{ width:8, height:8, borderRadius:"50%", border:"2px solid var(--t3)", borderTopColor:"var(--ac)", animation:"spin .8s linear infinite", display:"inline-block" }} />}</div>
-              <span style={{ fontSize:14, color: s.d ? "var(--t1)" : "var(--t3)", fontWeight: s.d ? 500 : 400, transition:"all .3s" }}>{s.l}</span>
+        <div style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 14px", borderRadius:20, background:"var(--g1s)", border:"1px solid rgba(34,197,94,.2)" }}>
+          <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--g1)", animation:"pulseDot 1.4s infinite" }} />
+          <span style={{ fontSize:12, color:"var(--g1)", fontWeight:600 }}>AI Kodluyor</span>
+        </div>
+      </div>
+
+      {/* Chat */}
+      <div style={{ flex:1, maxWidth:680, width:"100%", margin:"0 auto", padding:"88px 20px 110px", display:"flex", flexDirection:"column", gap:14, position:"relative", zIndex:1, overflowY:"auto" }}>
+
+        {/* User bubble */}
+        <div className="cmsg" style={{ display:"flex", justifyContent:"flex-end", gap:10, alignItems:"flex-end" }}>
+          <div style={{ maxWidth:"72%", background:"linear-gradient(135deg,var(--ac),rgba(92,224,214,.8))", borderRadius:"18px 18px 4px 18px", padding:"12px 18px", fontSize:14, lineHeight:1.65, color:"#fff", boxShadow:"0 6px 28px rgba(124,92,252,.25)" }}>
+            {prompt || "Uygulama oluştur"}
+          </div>
+          <div style={{ width:34, height:34, borderRadius:"50%", background:"var(--b3)", border:"1px solid var(--br)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>👤</div>
+        </div>
+
+        {/* AI adım mesajları */}
+        {steps.map((s, i) => (
+          <div key={i} className="cmsg" style={{ display:"flex", gap:12, alignItems:"flex-start", animationDelay:`${i*.12}s` }}>
+            <div style={{ width:42, height:42, borderRadius:"50%", background: s.d ? "linear-gradient(135deg,var(--g1),#16a34a)" : "linear-gradient(135deg,var(--ac),var(--ac2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:19, flexShrink:0, boxShadow:`0 4px 18px ${s.d ? "rgba(34,197,94,.22)" : "rgba(124,92,252,.22)"}`, transition:"all .6s", position:"relative" }}>
+              {AI_MSGS[i]?.icon || "⚡"}
+              {!s.d && <div style={{ position:"absolute", inset:-4, borderRadius:"50%", border:"2px solid transparent", borderTopColor:"var(--ac)", animation:"spin 1s linear infinite" }} />}
             </div>
-          ))}
+            <div style={{ flex:1, background: s.d ? "rgba(34,197,94,.05)" : "var(--b2)", border:`1px solid ${s.d ? "rgba(34,197,94,.15)" : "var(--br)"}`, borderRadius:"4px 18px 18px 18px", padding:"13px 17px", transition:"all .5s" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
+                <span style={{ fontSize:10, fontWeight:700, color: s.d ? "var(--g1)" : "var(--ac)", textTransform:"uppercase", letterSpacing:.6 }}>{s.d ? "✓ Tamamlandı" : "⟳ İşleniyor"}</span>
+                {!s.d && <div style={{ display:"flex", gap:3 }}>{[0,1,2].map(j => <span key={j} style={{ width:5, height:5, borderRadius:"50%", background:"var(--ac)", display:"inline-block", animation:"bounce .9s ease infinite", animationDelay:`${j*.18}s`, opacity:.7 }} />)}</div>}
+              </div>
+              <div style={{ fontSize:14, fontWeight:600, color:"var(--t1)", marginBottom: s.d ? 5 : 0 }}>{AI_MSGS[i]?.title || s.l}</div>
+              {s.d && <div style={{ fontSize:12, color:"var(--t3)", lineHeight:1.6, marginBottom:8 }}>{AI_MSGS[i]?.detail}</div>}
+              {s.d && <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                {["HTML","CSS","JavaScript","Responsive","Dark Theme"].slice(0, Math.min(i+2,5)).map(t => (
+                  <span key={t} style={{ padding:"2px 9px", borderRadius:6, background:"var(--acs)", color:"var(--ac)", fontSize:10, fontWeight:600 }}>{t}</span>
+                ))}
+              </div>}
+            </div>
+          </div>
+        ))}
+
+        {/* Canlı terminal - 2. adımdan sonra */}
+        {steps.filter(s => s.d).length >= 2 && (
+          <div className="cmsg" style={{ display:"flex", gap:12, animationDelay:".25s" }}>
+            <div style={{ width:42, height:42, borderRadius:"50%", background:"#0d1117", border:"1px solid #30363d", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>💻</div>
+            <div style={{ flex:1, background:"#0d1117", border:"1px solid #30363d", borderRadius:"4px 18px 18px 18px", padding:"14px 18px", fontFamily:"'Fira Code',monospace", fontSize:11.5, lineHeight:1.9, position:"relative", overflow:"hidden" }}>
+              <div style={{ color:"#8b949e", fontSize:10, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>▸ appforge / code-generator</div>
+              <div><span style={{ color:"#ff7b72" }}>const</span> <span style={{ color:"#79c0ff" }}>app</span> <span style={{ color:"#ff7b72" }}>=</span> <span style={{ color:"#d2a8ff" }}>await</span> <span style={{ color:"#ffa657" }}>forge</span>(<span style={{ color:"#a5d6ff" }}>"{(prompt||"").substring(0,26)}{(prompt||"").length>26?"...":""}"</span>);</div>
+              <div><span style={{ color:"#d2a8ff" }}>await</span> app.<span style={{ color:"#7ee787" }}>generateUI</span>();</div>
+              <div><span style={{ color:"#d2a8ff" }}>await</span> app.<span style={{ color:"#7ee787" }}>applyStyles</span>(<span style={{ color:"#a5d6ff" }}>"dark-pro"</span>);</div>
+              {steps.filter(s=>s.d).length >= 4 && <div><span style={{ color:"#d2a8ff" }}>await</span> app.<span style={{ color:"#7ee787" }}>optimize</span>();</div>}
+              <div style={{ color:"#7ee787", marginTop:6 }}><span style={{ color:"#e6edf3" }}>// Oluşturuluyor</span><span style={{ animation:"blink 1s infinite" }}>▌</span></div>
+              <div style={{ position:"absolute", left:0, right:0, height:"1px", background:"linear-gradient(90deg,transparent,rgba(126,231,135,.1),transparent)", animation:"scanLine 3s linear infinite", pointerEvents:"none" }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Progress */}
+      <div style={{ position:"fixed", bottom:0, left:0, right:0, padding:"13px 28px", background:"rgba(6,6,10,.95)", backdropFilter:"blur(20px)", borderTop:"1px solid var(--br)", zIndex:100 }}>
+        <div style={{ maxWidth:680, margin:"0 auto" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7 }}>
+            <span style={{ fontSize:12, color:"var(--t3)" }}>{steps.find(s => !s.d)?.l || "Tamamlanıyor..."}</span>
+            <span style={{ fontSize:12, fontWeight:700, color:"var(--ac)" }}>{Math.round((steps.filter(s=>s.d).length / Math.max(steps.length,1)) * 100)}%</span>
+          </div>
+          <div style={{ height:3, background:"var(--b3)", borderRadius:3, overflow:"hidden" }}>
+            <div style={{ height:"100%", borderRadius:3, background:"linear-gradient(90deg,var(--ac),var(--ac2))", width:`${(steps.filter(s=>s.d).length / Math.max(steps.length,1)) * 100}%`, transition:"width .8s cubic-bezier(.4,0,.2,1)", boxShadow:"0 0 10px var(--acg)" }} />
+          </div>
         </div>
       </div>
     </div>
@@ -583,4 +640,3 @@ export default function App() {
 
   return null;
 }
-// placeholder
