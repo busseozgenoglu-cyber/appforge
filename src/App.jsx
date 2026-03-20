@@ -117,19 +117,20 @@ textarea:focus,input:focus{outline:none;border-color:var(--ac)!important;box-sha
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function App() {
-  const [pg, setPg] = useState("home");
+  const loadLS = (key, def) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } };
+  const [pg, setPg] = useState(() => { const p = loadLS("af_projs", []); return p.length > 0 ? "preview" : "home"; });
   const [prompt, setPrompt] = useState("");
   const [gen, setGen] = useState(false);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(() => { const p = loadLS("af_projs", []); return p.length > 0 ? p[0].code : ""; });
   const [steps, setSteps] = useState([]);
   const [hist, setHist] = useState([]);
   const [editTxt, setEditTxt] = useState("");
-  const [projs, setProjs] = useState([]);
-  const [actProj, setActProj] = useState(null);
+  const [projs, setProjs] = useState(() => loadLS("af_projs", []));
+  const [actProj, setActProj] = useState(() => { const p = loadLS("af_projs", []); return p.length > 0 ? p[0].id : null; });
   const [side, setSide] = useState(true);
   const [codeV, setCodeV] = useState(false);
-  const [tok, setTok] = useState(99999);
-  const [daily, setDaily] = useState({ d: today(), u: 0 });
+  const [tok, setTok] = useState(() => loadLS("af_tok", 99999));
+  const [daily, setDaily] = useState(() => loadLS("af_daily", { d: today(), u: 0 }));
   const [showPrice, setShowPrice] = useState(false);
   const [showPay, setShowPay] = useState(null);
   const [tLog, setTLog] = useState([]);
@@ -149,6 +150,11 @@ export default function App() {
     window.addEventListener("mousemove", h);
     return () => window.removeEventListener("mousemove", h);
   }, []);
+
+  // LocalStorage persist
+  useEffect(() => { localStorage.setItem("af_projs", JSON.stringify(projs)); }, [projs]);
+  useEffect(() => { localStorage.setItem("af_tok", JSON.stringify(tok)); }, [tok]);
+  useEffect(() => { localStorage.setItem("af_daily", JSON.stringify(daily)); }, [daily]);
 
   const notify = useCallback((m, t = "info") => { setToast({ m, t }); setTimeout(() => setToast(null), 3500); }, []);
 
@@ -233,7 +239,7 @@ export default function App() {
 
   const buyPkg = (pkg) => { setTok(p => p + pkg.tokens); log("buy", -pkg.tokens, `${pkg.name}: +${pkg.tokens} (${pkg.price}₺)`); notify(`${pkg.tokens} kredi yüklendi!`, "ok"); setShowPay(null); setShowPrice(false); };
 
-  useEffect(() => { if (code && iframe.current && !codeV) { const d = iframe.current.contentDocument; d.open(); d.write(code); d.close(); } }, [code, codeV]);
+  // iframe srcDoc ile otomatik güncelleniyor
 
   const dl = () => { const b = new Blob([code], { type: "text/html" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = "uygulama.html"; a.click(); URL.revokeObjectURL(u); };
 
@@ -557,7 +563,7 @@ export default function App() {
                 <pre style={{ padding:20, fontSize:12, lineHeight:1.7, fontFamily:"'Fira Code',monospace", color:"#b4b4cc", whiteSpace:"pre-wrap", wordBreak:"break-all" }}>{code}</pre>
               </div>
             ) : (
-              <iframe ref={iframe} title="preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ width:"100%", height:"100%", border:"none", background:"#fff" }} />
+              <iframe ref={iframe} title="preview" srcDoc={code} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" style={{ width:"100%", height:"100%", border:"none", background:"#fff" }} />
             )}
             <TestPanel />
           </div>
