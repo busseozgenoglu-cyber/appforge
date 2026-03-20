@@ -117,19 +117,24 @@ textarea:focus,input:focus{outline:none;border-color:var(--ac)!important;box-sha
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function App() {
-  const [pg, setPg] = useState("home");
+  const ls = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+  const savedProjs = ls("af_projs", []);
+  const savedActProj = savedProjs.length > 0 ? savedProjs[0].id : null;
+  const savedCode = savedProjs.length > 0 ? savedProjs[0].code : "";
+
+  const [pg, setPg] = useState(savedProjs.length > 0 ? "preview" : "home");
   const [prompt, setPrompt] = useState("");
   const [gen, setGen] = useState(false);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(savedCode);
   const [steps, setSteps] = useState([]);
   const [hist, setHist] = useState([]);
   const [editTxt, setEditTxt] = useState("");
-  const [projs, setProjs] = useState([]);
-  const [actProj, setActProj] = useState(null);
+  const [projs, setProjs] = useState(savedProjs);
+  const [actProj, setActProj] = useState(savedActProj);
   const [side, setSide] = useState(true);
   const [codeV, setCodeV] = useState(false);
-  const [tok, setTok] = useState(0);
-  const [daily, setDaily] = useState({ d: today(), u: 0 });
+  const [tok, setTok] = useState(ls("af_tok", 99999));
+  const [daily, setDaily] = useState(ls("af_daily", { d: today(), u: 0 }));
   const [showPrice, setShowPrice] = useState(false);
   const [showPay, setShowPay] = useState(null);
   const [tLog, setTLog] = useState([]);
@@ -142,6 +147,11 @@ export default function App() {
   const iframe = useRef(null);
   const tokRef = useRef(tok);
   tokRef.current = tok;
+
+  // LocalStorage kaydet
+  useEffect(() => { localStorage.setItem("af_projs", JSON.stringify(projs)); }, [projs]);
+  useEffect(() => { localStorage.setItem("af_tok", JSON.stringify(tok)); }, [tok]);
+  useEffect(() => { localStorage.setItem("af_daily", JSON.stringify(daily)); }, [daily]);
 
   // Mouse tracker for parallax
   useEffect(() => {
@@ -186,36 +196,11 @@ export default function App() {
       ? [...hist, { role: "user", content: `Güncelle: ${pr}\n\nMevcut:\n${code}\n\nTam HTML döndür.` }]
       : [{ role: "user", content: pr }];
     try {
-      // AI isteğini hemen başlat
-      const aiPromise = callAI(SYS_BUILD, msgs);
-      let aiDone = false;
-      aiPromise.then(() => { aiDone = true; });
-
-      // İlk adımı hemen göster
-      setSteps(p => p.map((s, j) => j === 0 ? { ...s, d: true } : s));
-
-      // Adımları AI süresine göre dağıt — her adım arası ~(toplam_sure / adım_sayısı)
-      // Ama maksimum 80% tamamlanır, son adım AI bitince tamamlanır
-      const maxPreSteps = labels.length - 1;
-      let currentStep = 1;
-
-      const ticker = setInterval(() => {
-        if (currentStep < maxPreSteps && !aiDone) {
-          setSteps(p => p.map((s, j) => j === currentStep ? { ...s, d: true } : s));
-          currentStep++;
-        } else if (aiDone && currentStep <= maxPreSteps) {
-          // AI bitti, kalan adımları hızlıca tamamla
-          setSteps(p => p.map((s, j) => j <= maxPreSteps ? { ...s, d: true } : s));
-          currentStep = maxPreSteps + 1;
-          clearInterval(ticker);
-        }
-      }, 4000);
-
-      let c = await aiPromise;
-      clearInterval(ticker);
-      // Son adımı tamamla
-      setSteps(p => p.map(s => ({ ...s, d: true })));
-      await new Promise(r => setTimeout(r, 500));
+      for (let i = 0; i < labels.length; i++) {
+        await new Promise(r => setTimeout(r, 450 + Math.random() * 400));
+        setSteps(p => p.map((s, j) => j <= i ? { ...s, d: true } : s));
+      }
+      let c = await callAI(SYS_BUILD, msgs);
       c = c.replace(/^```html?\n?/i, "").replace(/\n?```$/g, "").trim();
       if (!c.startsWith("<!DOCTYPE") && !c.startsWith("<html")) { const i = c.indexOf("<!DOCTYPE"); if (i > -1) c = c.substring(i); }
       setCode(c); setHist([...msgs, { role: "assistant", content: c }]);
