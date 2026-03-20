@@ -43,7 +43,7 @@ const TEMPLATES = [
 ];
 
 // ─── AI CALL (Backend proxy üzerinden — key güvende) ───
-async function callAI(system, messages, maxTokens = 8000) {
+async function callAI(system, messages, maxTokens = 4000) {
   const res = await fetch("/api/ai", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
