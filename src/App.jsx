@@ -128,7 +128,7 @@ export default function App() {
   const [actProj, setActProj] = useState(null);
   const [side, setSide] = useState(true);
   const [codeV, setCodeV] = useState(false);
-  const [tok, setTok] = useState(0);
+  const [tok, setTok] = useState(99999);
   const [daily, setDaily] = useState({ d: today(), u: 0 });
   const [showPrice, setShowPrice] = useState(false);
   const [showPay, setShowPay] = useState(null);
