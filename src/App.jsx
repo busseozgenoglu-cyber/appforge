@@ -124,8 +124,8 @@ export default function App() {
   const [steps, setSteps] = useState([]);
   const [hist, setHist] = useState([]);
   const [editTxt, setEditTxt] = useState("");
-  const [projs, setProjs] = useState([]);
-  const [actProj, setActProj] = useState(null);
+  const [projs, setProjs] = useState(() => { try { const v = localStorage.getItem("af_projs"); return v ? JSON.parse(v) : []; } catch { return []; } });
+  const [actProj, setActProj] = useState(() => { try { const p = localStorage.getItem("af_projs"); const projs = p ? JSON.parse(p) : []; return projs.length > 0 ? projs[0].id : null; } catch { return null; } });
   const [side, setSide] = useState(true);
   const [codeV, setCodeV] = useState(false);
   const [tok, setTok] = useState(0);
