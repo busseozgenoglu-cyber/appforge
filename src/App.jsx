@@ -143,6 +143,10 @@ export default function App() {
   const tokRef = useRef(tok);
   tokRef.current = tok;
 
+  // Persist to localStorage
+  useEffect(() => { localStorage.setItem("af_projs", JSON.stringify(projs)); }, [projs]);
+  useEffect(() => { localStorage.setItem("af_tok", JSON.stringify(tok)); }, [tok]);
+
   // Mouse tracker for parallax
   useEffect(() => {
     const h = (e) => setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
@@ -579,3 +583,4 @@ export default function App() {
 
   return null;
 }
+// placeholder
