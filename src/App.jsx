@@ -245,7 +245,7 @@ export default function App() {
         setPreview(updated);
         if (user) saveProjectToDB(user.id, updated);
       } else {
-        const newProj = { id: Date.now(), name: pr.substring(0, 40) + (pr.length > 40 ? "…" : ""), code: c, date: now };
+        const newProj = { id: crypto.randomUUID(), name: pr.substring(0, 40) + (pr.length > 40 ? "…" : ""), code: c, date: now };
         setProjs(p => [newProj, ...p]);
         setActProj(newProj.id);
         setPreview(newProj);
