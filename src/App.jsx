@@ -1,67 +1,26 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://hbutzuuwigextzhkgabs.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhidXR6dXV3aWdleHR6aGtnYWJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTE4NTUsImV4cCI6MjA4OTU4Nzg1NX0.3pqLluVATmMFMZWdC8Klqtrm81HJ8nuSSC0YT9qaa8Y";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(
+  "https://hbutzuuwigextzhkgabs.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhidXR6dXV3aWdleHR6aGtnYWJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTE4NTUsImV4cCI6MjA4OTU4Nzg1NX0.3pqLluVATmMFMZWdC8Klqtrm81HJ8nuSSC0YT9qaa8Y"
+);
 
-/*
- ╔══════════════════════════════════════════════════════════════╗
- ║  AppForge.ai — AI App Builder                               ║
- ║  Backend'de API key gömülü — müşteri hiçbir şey görmez      ║
- ║                                                              ║
- ║  PRODUCTION NOTU:                                            ║
- ║  Aşağıdaki BACKEND_CONFIG'i kendi backend API'nize           ║
- ║  yönlendirin. Şu an direkt DeepSeek API'ye gidiyor.         ║
- ║  Production'da: frontend → sizin backend → DeepSeek          ║
- ╚══════════════════════════════════════════════════════════════╝
-*/
-
-// ─── API KEY GÜVENLİ ───
-// Frontend ASLA API key görmez.
-// Tüm AI istekleri /api/ai endpoint'ine gider,
-// server.js API key'i ekleyip AI'a yönlendirir.
-
-// ─── PRICING ───
 const FREE_DAILY = 3;
-const COSTS = { build: 50, edit: 30, test: 40, fix: 35 };
-const PACKAGES = [
-  { id: "s", tokens: 500, price: 49.9, name: "Başlangıç", sub: "10 uygulama", icon: "⚡" },
-  { id: "p", tokens: 1500, price: 119.9, name: "Profesyonel", sub: "30 uygulama", icon: "🔥", pop: true, save: 20 },
-  { id: "b", tokens: 5000, price: 299.9, name: "İşletme", sub: "100 uygulama", icon: "🏢", save: 40 },
-  { id: "u", tokens: 15000, price: 699.9, name: "Sınırsız", sub: "300+ uygulama", icon: "💎", save: 53 },
-];
+const COSTS = { build: 50, edit: 30, test: 40 };
+const today = () => new Date().toISOString().slice(0, 10);
+const ls = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
 
 const TEMPLATES = [
-  { id: 1, icon: "👥", name: "CRM Sistemi", cat: "İş", p: "Müşteri takip sistemi oluştur: müşteri listesi, detay sayfası, iletişim geçmişi, notlar, arama, filtreleme, istatistik kartları" },
-  { id: 2, icon: "🛒", name: "E-Ticaret Paneli", cat: "Ticaret", p: "E-ticaret yönetim paneli oluştur: ürün kataloğu, sipariş takibi, stok yönetimi, gelir grafikleri, müşteri listesi" },
-  { id: 3, icon: "✅", name: "Kanban Board", cat: "Verimlilik", p: "Kanban görev yönetim uygulaması oluştur: sürükle-bırak kartlar, 3 sütun, etiketler, öncelik, renk kodlama" },
-  { id: 4, icon: "📊", name: "Analytics Dashboard", cat: "Veri", p: "Analitik dashboard oluştur: çizgi/bar grafikler, KPI kartları, filtreleme, tarih aralığı, gerçek zamanlı veri" },
-  { id: 5, icon: "💬", name: "Chat Uygulaması", cat: "İletişim", p: "Sohbet uygulaması oluştur: mesaj balonları, kullanıcılar, emoji picker, online durumu, arama" },
-  { id: 6, icon: "📝", name: "Blog CMS", cat: "İçerik", p: "Blog yönetim sistemi oluştur: zengin metin editörü, kategori, etiketler, taslak/yayınla, yorum sistemi" },
-  { id: 7, icon: "📅", name: "Takvim", cat: "Planlama", p: "Takvim uygulaması oluştur: aylık/haftalık görünüm, etkinlik ekleme/düzenleme, renk kodlama, drag&drop" },
-  { id: 8, icon: "📦", name: "Stok Takip", cat: "İş", p: "Envanter yönetim sistemi oluştur: ürün kartları, stok miktarı, barkod, minimum stok uyarısı, kategori filtre" },
-  { id: 9, icon: "💰", name: "Finans Takip", cat: "Finans", p: "Kişisel finans uygulaması oluştur: gelir/gider girişi, pasta/bar grafikler, aylık özet, bütçe hedefi" },
-  { id: 10, icon: "🚀", name: "Landing Page", cat: "Pazarlama", p: "Modern SaaS landing page oluştur: hero, features grid, pricing table, testimonials, CTA, footer" },
-  { id: 11, icon: "🏢", name: "İK Paneli", cat: "İş", p: "İK yönetim sistemi oluştur: personel kartları, izin takvimi, maaş tablosu, performans grafikleri" },
-  { id: 12, icon: "📋", name: "Form Builder", cat: "Araç", p: "Sürükle-bırak form oluşturucu: input/select/checkbox/textarea alanları, doğrulama, önizleme, JSON export" },
+  { icon: "👥", name: "CRM Sistemi", p: "Müşteri takip sistemi oluştur: müşteri listesi, detay sayfası, iletişim geçmişi, notlar, arama, filtreleme, istatistik kartları" },
+  { icon: "🛒", name: "E-Ticaret Paneli", p: "E-ticaret yönetim paneli oluştur: ürün kataloğu, sipariş takibi, stok yönetimi, gelir grafikleri, müşteri listesi" },
+  { icon: "✅", name: "Kanban Board", p: "Kanban görev yönetim uygulaması oluştur: sürükle-bırak kartlar, 3 sütun, etiketler, öncelik, renk kodlama" },
+  { icon: "📊", name: "Analytics Dashboard", p: "Analitik dashboard oluştur: çizgi/bar grafikler, KPI kartları, filtreleme, tarih aralığı, gerçek zamanlı veri" },
+  { icon: "💬", name: "Chat Uygulaması", p: "Sohbet uygulaması oluştur: mesaj balonları, kullanıcılar, emoji picker, online durumu, arama" },
+  { icon: "💰", name: "Finans Takip", p: "Kişisel finans uygulaması oluştur: gelir/gider girişi, pasta/bar grafikler, aylık özet, bütçe hedefi" },
+  { icon: "📅", name: "Takvim", p: "Takvim uygulaması oluştur: aylık/haftalık görünüm, etkinlik ekleme/düzenleme, renk kodlama, drag&drop" },
+  { icon: "🚀", name: "Landing Page", p: "Modern SaaS landing page oluştur: hero, features grid, pricing table, testimonials, CTA, footer" },
 ];
-
-// ─── AI CALL (Backend proxy üzerinden — key güvende) ───
-async function callAI(system, messages, maxTokens = 8000) {
-  const res = await fetch("/api/ai", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system, messages, max_tokens: maxTokens }),
-  });
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.error || `Hata: ${res.status}`);
-  }
-  const d = await res.json();
-  return d.text || "";
-}
-
 
 const SYS_BUILD = `Sen profesyonel bir frontend geliştiricisin. Kullanıcının istediği uygulamayı TEK BİR HTML dosyası olarak oluştur.
 KURALLAR:
@@ -71,122 +30,125 @@ KURALLAR:
 - Responsive, animasyonlu, SADECE HTML kodu döndür
 - Kod blokları KULLANMA, direkt <!DOCTYPE html> ile başla`;
 
-const SYS_TEST = `Sen QA uzmanısın. HTML uygulamasını analiz et, SADECE JSON döndür:
-{"score":0-100,"summary":"Türkçe özet","issues":[{"severity":"critical|warning|info","title":"..","description":"..","fix":".."}],"metrics":{"html":0-100,"css":0-100,"js":0-100,"responsive":0-100,"accessibility":0-100,"performance":0-100},"canAutoFix":true}`;
+async function callAI(messages, maxTokens = 4000) {
+  const res = await fetch("/api/ai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ system: SYS_BUILD, messages, max_tokens: maxTokens }),
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `Hata: ${res.status}`); }
+  const d = await res.json();
+  return d.text || "";
+}
 
-const SYS_FIX = `Sen frontend geliştiricisin. HTML uygulamasındaki sorunları düzelt. SADECE düzeltilmiş tam HTML kodunu döndür, açıklama yazma. Kod blokları kullanma.`;
-
-// ─── STYLES ───
 const G = `
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
-:root {
-  --b1:#06060a; --b2:#0e0e14; --b3:#16161f; --b4:#1e1e2a;
-  --br:#1f1f2e; --brh:#2a2a3d;
-  --t1:#f0f0f5; --t2:#9d9db5; --t3:#5e5e7a;
-  --ac:#7c5cfc; --ac2:#5ce0d6; --ac3:#fc5c8c;
-  --acs:rgba(124,92,252,0.1); --acg:rgba(124,92,252,0.25);
-  --g1:#22c55e; --g1s:rgba(34,197,94,0.1);
-  --r1:#ef4444; --r1s:rgba(239,68,68,0.1);
-  --w1:#f59e0b; --w1s:rgba(245,158,11,0.1);
-  --c1:#06b6d4; --c1s:rgba(6,182,212,0.1);
-}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--b1);color:var(--t1);font-family:'Sora',sans-serif;overflow-x:hidden}
-::selection{background:var(--ac);color:#fff}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-track{background:var(--b1)}
-::-webkit-scrollbar-thumb{background:var(--b3);border-radius:9px}
-textarea:focus,input:focus{outline:none;border-color:var(--ac)!important;box-shadow:0 0 0 3px var(--acs)!important}
-@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes slideR{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+html,body{height:100%;background:#07070c;color:#ededf5;font-family:'Sora',sans-serif;overflow:hidden}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#252538;border-radius:4px}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes float{0%,100%{transform:translateY(0) rotate(0deg)}25%{transform:translateY(-12px) rotate(1deg)}75%{transform:translateY(8px) rotate(-1deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes msgIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.2)}}
+@keyframes glow{0%,100%{box-shadow:0 0 20px rgba(124,92,252,.2)}50%{box-shadow:0 0 40px rgba(124,92,252,.5)}}
 @keyframes gradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-@keyframes glow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.3)}}
-@keyframes morph{0%,100%{border-radius:60% 40% 30% 70%/60% 30% 70% 40%}50%{border-radius:30% 60% 70% 40%/50% 60% 30% 60%}}
-@keyframes orbit{from{transform:rotate(0deg) translateX(140px) rotate(0deg)}to{transform:rotate(360deg) translateX(140px) rotate(-360deg)}}
-@keyframes pulseDot{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.5);opacity:1}}
-@keyframes typewriter{from{width:0}to{width:100%}}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}
+@keyframes scanline{from{top:0}to{top:100%}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-.card-h:hover{transform:translateY(-6px) scale(1.02);border-color:var(--ac)!important;box-shadow:0 20px 60px rgba(124,92,252,0.12)!important}
-.card-h{transition:all .4s cubic-bezier(.4,0,.2,1)}
-.btn-g:hover{transform:translateY(-2px);box-shadow:0 12px 35px var(--acg)!important}
-.hv:hover{background:var(--b3)!important}
-.pkg:hover{transform:translateY(-8px);box-shadow:0 20px 50px rgba(0,0,0,.5)!important}
-.pkg{transition:all .35s ease}
-.pj:hover{background:var(--b3)!important}
-.pj.on{background:var(--acs)!important;border-color:var(--ac)!important}
+@keyframes morph{0%,100%{border-radius:60% 40% 30% 70%/60% 30% 70% 40%}50%{border-radius:30% 60% 70% 40%/50% 60% 30% 60%}}
+@keyframes orbit{from{transform:rotate(0deg) translateX(120px) rotate(0deg)}to{transform:rotate(360deg) translateX(120px) rotate(-360deg)}}
+@keyframes pulseDot{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.5);opacity:1}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes card-hover{to{transform:translateY(-4px);border-color:#7c5cfc}}
+.card-h{transition:all .3s ease}
+.card-h:hover{transform:translateY(-4px)!important;border-color:#7c5cfc!important;box-shadow:0 12px 40px rgba(124,92,252,.15)!important}
+.cmsg{animation:msgIn .45s cubic-bezier(.34,1.3,.64,1) both}
+.pj:hover{background:#16161f!important}
+.pj.active{background:rgba(124,92,252,.12)!important;border-color:rgba(124,92,252,.3)!important}
+.hv:hover{background:#16161f!important}
+.sugg:hover{border-color:#7c5cfc!important;background:rgba(124,92,252,.08)!important;transform:translateY(-2px)}
+.sugg{transition:all .2s}
+.send:hover:not(:disabled){transform:scale(1.08);box-shadow:0 4px 20px rgba(124,92,252,.4)!important}
+.send:disabled{opacity:.35;cursor:not-allowed}
 `;
 
-const today = () => new Date().toISOString().slice(0, 10);
-
 export default function App() {
-  const ls = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+  // ── Auth ──
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authPg, setAuthPg] = useState("login");
+  const [authTab, setAuthTab] = useState("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
   const [authErr, setAuthErr] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
-  const [pg, setPg] = useState(() => { const p = ls("af_projs",[]); return p.length>0?"preview":"home"; });
-  const [prompt, setPrompt] = useState("");
+
+  // ── App ──
+  const [projs, setProjs] = useState(() => ls("af_projs", []));
+  const [actProj, setActProj] = useState(() => { const p = ls("af_projs", []); return p.length > 0 ? p[0].id : null; });
+  const [tok, setTok] = useState(() => ls("af_tok", 99999));
+  const [daily, setDaily] = useState(() => ls("af_daily", { d: today(), u: 0 }));
+  const [pg, setPg] = useState("home");
+  const [code, setCode] = useState("");
   const [gen, setGen] = useState(false);
-  const [code, setCode] = useState(() => { const p = ls("af_projs",[]); return p.length>0?p[0].code:""; });
-  const [steps, setSteps] = useState([]);
-  const [hist, setHist] = useState([]);
-  const [editTxt, setEditTxt] = useState("");
-  const [projs, setProjs] = useState(() => ls("af_projs",[]));
-  const [actProj, setActProj] = useState(() => { const p = ls("af_projs",[]); return p.length>0?p[0].id:null; });
-  const [side, setSide] = useState(true);
-  const [codeV, setCodeV] = useState(false);
-  const [tok, setTok] = useState(() => ls("af_tok",99999));
-  const [daily, setDaily] = useState(() => ls("af_daily",{ d: today(), u: 0 }));
-  const [showPrice, setShowPrice] = useState(false);
-  const [showPay, setShowPay] = useState(null);
-  const [tLog, setTLog] = useState([]);
-  const [showLog, setShowLog] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testRes, setTestRes] = useState(null);
-  const [tSteps, setTSteps] = useState([]);
+  const [genSteps, setGenSteps] = useState([]);
+  const [genPrompt, setGenPrompt] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [codeView, setCodeView] = useState(false);
+  const [input, setInput] = useState("");
   const [toast, setToast] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const iframe = useRef(null);
-  const tokRef = useRef(tok);
-  tokRef.current = tok;
+  const [sideOpen, setSideOpen] = useState(true);
+  const messagesEndRef = useRef(null);
 
-  // Auth listener
+  // ── Persist ──
+  useEffect(() => { localStorage.setItem("af_projs", JSON.stringify(projs)); }, [projs]);
+  useEffect(() => { localStorage.setItem("af_tok", JSON.stringify(tok)); }, [tok]);
+  useEffect(() => { localStorage.setItem("af_daily", JSON.stringify(daily)); }, [daily]);
+
+  // ── Auth listener ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthLoading(false);
       if (session?.user) loadUserProjects(session.user.id);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
       if (session?.user) loadUserProjects(session.user.id);
+      else { setAuthLoading(false); }
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserProjects = async (userId) => {
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-    if (!error && data && data.length > 0) {
+  useEffect(() => {
+    const h = (e) => setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
+    window.addEventListener("mousemove", h);
+    return () => window.removeEventListener("mousemove", h);
+  }, []);
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [genSteps, gen]);
+
+  const notify = (m, t = "info") => { setToast({ m, t }); setTimeout(() => setToast(null), 3000); };
+
+  const freeLeft = () => {
+    if (daily.d !== today()) return FREE_DAILY;
+    return Math.max(0, FREE_DAILY - daily.u);
+  };
+
+  const loadUserProjects = async (uid) => {
+    const { data } = await supabase.from("projects").select("*").eq("user_id", uid).order("created_at", { ascending: false });
+    if (data && data.length > 0) {
       const mapped = data.map(p => ({ id: p.id, name: p.name, code: p.code, date: new Date(p.created_at).toLocaleString("tr-TR") }));
       setProjs(mapped);
       setActProj(mapped[0].id);
-      setCode(mapped[0].code);
+      setPreview(mapped[0]);
       setPg("preview");
     }
   };
 
-  const saveProjectToDB = async (userId, proj) => {
-    await supabase.from("projects").upsert({ id: proj.id, user_id: userId, name: proj.name, code: proj.code });
+  const saveProjectToDB = async (uid, proj) => {
+    await supabase.from("projects").upsert({ id: proj.id, user_id: uid, name: proj.name, code: proj.code });
   };
 
   const handleLogin = async () => {
@@ -200,7 +162,7 @@ export default function App() {
     setAuthBusy(true); setAuthErr("");
     const { error } = await supabase.auth.signUp({ email: authEmail, password: authPass });
     if (error) setAuthErr(error.message);
-    else setAuthErr("✅ Doğrulama emaili gönderildi! Email'inizi kontrol edin.");
+    else setAuthErr("OK:Doğrulama emaili gönderildi, kontrol edin.");
     setAuthBusy(false);
   };
 
@@ -210,443 +172,316 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser(null); setProjs([]); setActProj(null); setCode(""); setPg("home");
+    setUser(null); setProjs([]); setActProj(null); setPreview(null); setPg("home");
     localStorage.clear();
   };
 
-  // Auth listener
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-      if (session?.user) loadUserProjects(session.user.id);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) loadUserProjects(session.user.id);
-      else setAuthLoading(false);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+  // ── Build ──
+  const STEP_MSGS = [
+    { icon: "🧠", title: "İstek analiz ediliyor", detail: "Yapay zeka ne istediğinizi derinlemesine anlıyor, en iyi mimariyi planlıyor." },
+    { icon: "🏗️", title: "Mimari tasarlanıyor", detail: "Bileşen yapısı, veri akışı ve kullanıcı deneyimi planı oluşturuluyor." },
+    { icon: "⚡", title: "Kodlar yazılıyor", detail: "HTML, CSS ve JavaScript bileşenleri tek tek hayata geçiriliyor." },
+    { icon: "🎨", title: "Tasarım uygulanıyor", detail: "Animasyonlar, renkler, tipografi ve responsive layout ekleniyor." },
+    { icon: "🔧", title: "Son dokunuşlar yapılıyor", detail: "Performans optimizasyonu, hata kontrolü ve tarayıcı uyumu sağlanıyor." },
+  ];
 
-  // LocalStorage kaydet
-  useEffect(() => { try { localStorage.setItem("af_projs", JSON.stringify(projs)); } catch {} }, [projs]);
-  useEffect(() => { try { localStorage.setItem("af_tok", JSON.stringify(tok)); } catch {} }, [tok]);
-  useEffect(() => { try { localStorage.setItem("af_daily", JSON.stringify(daily)); } catch {} }, [daily]);
+  const build = async (pr, isEdit = false) => {
+    if (gen) return;
 
-  const notify = (m, t = "info") => { setToast({ m, t }); setTimeout(() => setToast(null), 3500); };
-
-  const freeLeft = () => {
-    if (daily.d !== today()) return FREE_DAILY;
-    return Math.max(0, FREE_DAILY - daily.u);
-  };
-
-  const log = (a, c, n) => setTLog(p => [{ id: Date.now(), a, c, n, t: new Date().toLocaleString("tr-TR") }, ...p].slice(0, 80));
-
-  const spend = (amt, act) => {
+    // Token/free check
     const t = today();
     let d = daily.d === t ? { ...daily } : { d: t, u: 0 };
-    if (d.u < FREE_DAILY && (act === "build" || act === "edit")) {
+    if (d.u < FREE_DAILY) {
       d = { ...d, u: d.u + 1 };
       setDaily(d);
-      log(act, 0, "Ucretsiz");
-      return true;
+    } else if (tok < COSTS.build) {
+      notify("Yetersiz kredi!", "error");
+      return;
+    } else {
+      setTok(p => p - COSTS.build);
     }
-    if (tok < amt) { notify("Yetersiz kredi!", "error"); setShowPrice(true); return false; }
-    setTok(p => p - amt);
-    log(act, amt, amt + " kredi");
-    return true;
+
+    setGen(true);
+    setGenPrompt(pr);
+    setPg("gen");
+    setGenSteps(STEP_MSGS.map(s => ({ ...s, done: false })));
+
+    const msgs = isEdit && preview
+      ? [{ role: "user", content: `Güncelle: ${pr}\n\nMevcut:\n${preview.code}\n\nTam HTML döndür.` }]
+      : [{ role: "user", content: pr }];
+
+    try {
+      const aiPromise = callAI(msgs);
+      let aiDone = false;
+      aiPromise.then(() => { aiDone = true; }).catch(() => { aiDone = true; });
+
+      // İlk adım hemen
+      setGenSteps(p => p.map((s, i) => i === 0 ? { ...s, done: true } : s));
+
+      let cur = 1;
+      const ticker = setInterval(() => {
+        if (cur < STEP_MSGS.length - 1) {
+          setGenSteps(p => p.map((s, i) => i === cur ? { ...s, done: true } : s));
+          cur++;
+        } else if (aiDone) {
+          clearInterval(ticker);
+        }
+      }, 4500);
+
+      let c = await aiPromise;
+      clearInterval(ticker);
+      setGenSteps(p => p.map(s => ({ ...s, done: true })));
+      await new Promise(r => setTimeout(r, 500));
+
+      c = c.replace(/^```html?\n?/i, "").replace(/\n?```$/g, "").trim();
+      if (!c.startsWith("<!DOCTYPE") && !c.startsWith("<html")) {
+        const idx = c.indexOf("<!DOCTYPE"); if (idx > -1) c = c.substring(idx);
+      }
+
+      const now = new Date().toLocaleString("tr-TR");
+      if (isEdit && actProj) {
+        setProjs(p => p.map(x => x.id === actProj ? { ...x, code: c, date: now } : x));
+        const updated = { id: actProj, name: pr.substring(0, 40), code: c, date: now };
+        setPreview(updated);
+        if (user) saveProjectToDB(user.id, updated);
+      } else {
+        const newProj = { id: Date.now(), name: pr.substring(0, 40) + (pr.length > 40 ? "…" : ""), code: c, date: now };
+        setProjs(p => [newProj, ...p]);
+        setActProj(newProj.id);
+        setPreview(newProj);
+        if (user) saveProjectToDB(user.id, newProj);
+      }
+
+      setPg("preview");
+      notify("Uygulama hazır! 🎉", "ok");
+    } catch (e) {
+      notify("Hata: " + e.message, "error");
+      setPg("home");
+    } finally {
+      setGen(false);
+    }
   };
 
-  const build = useCallback(async (pr, edit = false) => {
-    if (!spend(edit ? COSTS.edit : COSTS.build, edit ? "edit" : "build")) return;
-    setGen(true); setTestRes(null);
-    const labels = edit
-      ? ["Değişiklikler analiz ediliyor...", "Kod güncelleniyor...", "Test ediliyor...", "Tamamlanıyor..."]
-      : ["İstek yorumlanıyor...", "Mimari oluşturuluyor...", "Bileşenler kodlanıyor...", "Stiller uygulanıyor...", "Optimize ediliyor..."];
-    setSteps(labels.map(l => ({ l, d: false })));
-    const msgs = edit
-      ? [...hist, { role: "user", content: `Güncelle: ${pr}\n\nMevcut:\n${code}\n\nTam HTML döndür.` }]
-      : [{ role: "user", content: pr }];
-    try {
-      for (let i = 0; i < labels.length; i++) {
-        await new Promise(r => setTimeout(r, 450 + Math.random() * 400));
-        setSteps(p => p.map((s, j) => j <= i ? { ...s, d: true } : s));
-      }
-      let c = await callAI(SYS_BUILD, msgs);
-      c = c.replace(/^```html?\n?/i, "").replace(/\n?```$/g, "").trim();
-      if (!c.startsWith("<!DOCTYPE") && !c.startsWith("<html")) { const i = c.indexOf("<!DOCTYPE"); if (i > -1) c = c.substring(i); }
-      setCode(c); setHist([...msgs, { role: "assistant", content: c }]);
-      const pj = { id: Date.now(), name: pr.substring(0, 38) + (pr.length > 38 ? "…" : ""), p: pr, code: c, date: new Date().toLocaleString("tr-TR") };
-      if (!edit) { setProjs(p => [pj, ...p]); setActProj(pj.id); setCode(c); } else { setProjs(p => p.map(x => x.id === actProj ? { ...x, code: c, date: pj.date } : x)); setCode(c); }
-      if (user) saveProjectToDB(user.id, { ...pj, id: edit ? actProj : pj.id, code: c });
-      setPg("preview"); notify(edit ? "Güncellendi!" : "Uygulama hazır!", "ok");
-    } catch (e) { notify(e.message, "error"); } finally { setGen(false); }
-  }, [hist, code, actProj, spend, notify]);
+  const dl = (c) => { const b = new Blob([c], { type: "text/html" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = "uygulama.html"; a.click(); URL.revokeObjectURL(u); };
 
-  // ── Test ──
-  const runTest = useCallback(async () => {
-    if (!code || !spend(COSTS.test, "test")) return;
-    setTesting(true); setTestRes(null);
-    const tl = ["Kod analizi...", "HTML doğrulama...", "JS hata taraması...", "Responsive test...", "Erişilebilirlik...", "Performans...", "Rapor..."];
-    setTSteps(tl.map(l => ({ l, d: false })));
-    try {
-      for (let i = 0; i < tl.length; i++) { await new Promise(r => setTimeout(r, 300 + Math.random() * 250)); setTSteps(p => p.map((s, j) => j <= i ? { ...s, d: true } : s)); }
-      let raw = await callAI(SYS_TEST, [{ role: "user", content: `Test et:\n\n${code}` }], 2000);
-      raw = raw.replace(/^```json?\n?/i, "").replace(/\n?```$/g, "").trim();
-      try { const r = JSON.parse(raw); setTestRes(r); notify(`Skor: ${r.score}/100`, r.score >= 70 ? "ok" : "warn"); }
-      catch { setTestRes({ score: 0, summary: "Sonuçlar okunamadı", issues: [], metrics: {} }); }
-    } catch (e) { notify("Test hatası: " + e.message, "error"); } finally { setTesting(false); }
-  }, [code, spend, notify]);
-
-  // ── Fix ──
-  const autoFix = useCallback(async () => {
-    if (!testRes || !spend(COSTS.fix, "fix")) return;
-    const il = testRes.issues.map(i => `[${i.severity}] ${i.title}: ${i.description}`).join("\n");
-    setGen(true); setSteps(["Sorunlar onarılıyor...", "Kod güncelleniyor...", "Doğrulama..."].map(l => ({ l, d: false })));
-    try {
-      for (let i = 0; i < 3; i++) { await new Promise(r => setTimeout(r, 500)); setSteps(p => p.map((s, j) => j <= i ? { ...s, d: true } : s)); }
-      let c = await callAI(SYS_FIX, [{ role: "user", content: `Düzelt:\n${il}\n\nKod:\n${code}` }]);
-      c = c.replace(/^```html?\n?/i, "").replace(/\n?```$/g, "").trim();
-      if (!c.startsWith("<!DOCTYPE")) { const i = c.indexOf("<!DOCTYPE"); if (i > -1) c = c.substring(i); }
-      setCode(c); setTestRes(null);
-      setProjs(p => p.map(x => x.id === actProj ? { ...x, code: c, date: new Date().toLocaleString("tr-TR") } : x));
-      notify("Sorunlar giderildi!", "ok");
-    } catch (e) { notify(e.message, "error"); } finally { setGen(false); }
-  }, [testRes, code, actProj, spend, notify]);
-
-  const buyPkg = (pkg) => { setTok(p => p + pkg.tokens); log("buy", -pkg.tokens, `${pkg.name}: +${pkg.tokens} (${pkg.price}₺)`); notify(`${pkg.tokens} kredi yüklendi!`, "ok"); setShowPay(null); setShowPrice(false); };
-
-  useEffect(() => { if (code && iframe.current && !codeV) { const d = iframe.current.contentDocument; d.open(); d.write(code); d.close(); } }, [code, codeV]);
-
-  const dl = () => { const b = new Blob([code], { type: "text/html" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = "uygulama.html"; a.click(); URL.revokeObjectURL(u); };
-
-  // ── Shared Components ──
-  const Toast = () => toast && (
-    <div style={{ position:"fixed", top:20, right:20, zIndex:9999, padding:"12px 22px", borderRadius:14, background: toast.t === "ok" ? "var(--g1)" : toast.t === "error" ? "var(--r1)" : toast.t === "warn" ? "var(--w1)" : "var(--ac)", color:"#fff", fontWeight:600, fontSize:14, boxShadow:"0 10px 40px rgba(0,0,0,.4)", animation:"slideR .3s ease", display:"flex", alignItems:"center", gap:8, backdropFilter:"blur(10px)" }}>
-      {toast.t === "ok" ? "✓" : toast.t === "error" ? "✕" : "⚡"} {toast.m}
+  // ── LOADING ──
+  if (authLoading) return (
+    <div style={{ minHeight: "100vh", background: "#07070c", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{G}</style>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #252538", borderTopColor: "#7c5cfc", animation: "spin 1s linear infinite" }} />
     </div>
   );
 
-  const CreditBar = ({ compact } = {}) => (
-    <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-      <div onClick={() => setShowLog(true)} style={{ display:"flex", alignItems:"center", gap:5, padding: compact ? "4px 10px" : "6px 14px", borderRadius:10, background:"var(--b2)", border:"1px solid var(--br)", cursor:"pointer", fontSize:13, fontWeight:600 }} className="hv">
-        <span style={{ background:"linear-gradient(135deg,var(--ac),var(--ac2))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>◆</span>
-        <span style={{ color:"var(--w1)" }}>{tok.toLocaleString()}</span>
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:4, padding: compact ? "4px 10px" : "6px 12px", borderRadius:10, background:"var(--g1s)", border:"1px solid rgba(34,197,94,.15)", fontSize:13, fontWeight:600 }}>
-        <span style={{ color:"var(--g1)" }}>{freeLeft()}</span>
-        <span style={{ color:"var(--t3)", fontSize:11 }}>ücretsiz</span>
-      </div>
-      <button onClick={() => setShowPrice(true)} className="hv" style={{ padding: compact ? "4px 12px" : "6px 14px", borderRadius:10, border:"1px solid var(--ac)", background:"var(--acs)", color:"var(--ac)", cursor:"pointer", fontSize:12, fontWeight:700, fontFamily:"'Sora'" }}>+ Kredi</button>
-    </div>
-  );
-
-  // Orbs background
-  const Orbs = () => (
-    <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, overflow:"hidden" }}>
-      <div style={{ position:"absolute", width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle, rgba(124,92,252,.08), transparent 70%)", top: `${-15 + mousePos.y * 8}%`, right: `${-8 + mousePos.x * 5}%`, transition:"top .8s ease, right .8s ease", animation:"morph 15s ease-in-out infinite" }} />
-      <div style={{ position:"absolute", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle, rgba(92,224,214,.06), transparent 70%)", bottom: `${-10 + mousePos.y * 6}%`, left: `${-5 + mousePos.x * 4}%`, transition:"bottom .8s ease, left .8s ease", animation:"morph 12s ease-in-out infinite reverse" }} />
-      <div style={{ position:"absolute", width:250, height:250, borderRadius:"50%", background:"radial-gradient(circle, rgba(252,92,140,.04), transparent 70%)", top:"40%", left:"50%", animation:"morph 18s ease-in-out infinite" }} />
-      {/* Grid lines */}
-      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(124,92,252,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(124,92,252,.03) 1px, transparent 1px)", backgroundSize:"80px 80px" }} />
-    </div>
-  );
-
-  // ── Pricing Modal ──
-  const PriceModal = () => showPrice && (
-    <div style={{ position:"fixed", inset:0, zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.75)", backdropFilter:"blur(12px)" }} onClick={() => setShowPrice(false)}>
-      <div onClick={e => e.stopPropagation()} style={{ background:"var(--b2)", border:"1px solid var(--br)", borderRadius:24, maxWidth:780, width:"92%", maxHeight:"88vh", overflow:"auto", padding:32, animation:"fadeUp .3s ease" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:28 }}>
-          <div>
-            <h2 style={{ fontSize:24, fontWeight:800, background:"linear-gradient(135deg,var(--ac),var(--ac2))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Kredi Yükle</h2>
-            <p style={{ color:"var(--t3)", fontSize:13, marginTop:4 }}>Bakiye: <span style={{ color:"var(--w1)", fontWeight:700 }}>{tok.toLocaleString()} kredi</span></p>
+  // ── AUTH ──
+  if (!user) return (
+    <div style={{ minHeight: "100vh", background: "#07070c", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{G}</style>
+      <div style={{ width: 400, animation: "fadeUp .5s ease" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 14px", animation: "glow 3s ease infinite" }}>⚡</div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-1px" }}>AppForge<span style={{ background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>.ai</span></h1>
+          <p style={{ fontSize: 13, color: "#55556e", marginTop: 6 }}>AI destekli uygulama oluşturucu</p>
+        </div>
+        <div style={{ background: "#0f0f18", border: "1px solid #252538", borderRadius: 20, padding: 28 }}>
+          <div style={{ display: "flex", background: "#07070c", borderRadius: 12, padding: 4, marginBottom: 22 }}>
+            {["login", "register"].map(t => (
+              <button key={t} onClick={() => { setAuthTab(t); setAuthErr(""); }} style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "none", background: authTab === t ? "#7c5cfc" : "transparent", color: authTab === t ? "#fff" : "#55556e", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .2s" }}>
+                {t === "login" ? "Giriş Yap" : "Kayıt Ol"}
+              </button>
+            ))}
           </div>
-          <button onClick={() => setShowPrice(false)} style={{ background:"var(--b3)", border:"none", color:"var(--t2)", width:36, height:36, borderRadius:10, cursor:"pointer", fontSize:16 }}>✕</button>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:24, padding:16, background:"var(--b1)", borderRadius:14, border:"1px solid var(--br)" }}>
-          {[{ i:"⚡", l:"Oluşturma", c:COSTS.build }, { i:"✏️", l:"Düzenleme", c:COSTS.edit }, { i:"🧪", l:"AI Test", c:COSTS.test }, { i:"🔧", l:"Oto-düzelt", c:COSTS.fix }].map(x => (
-            <div key={x.l} style={{ textAlign:"center" }}>
-              <div style={{ fontSize:20 }}>{x.i}</div>
-              <div style={{ fontSize:11, color:"var(--t3)", marginTop:2 }}>{x.l}</div>
-              <div style={{ fontSize:16, fontWeight:800, color:"var(--ac)", marginTop:2 }}>{x.c}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:14 }}>
-          {PACKAGES.map(pk => (
-            <div key={pk.id} className="pkg" onClick={() => setShowPay(pk)} style={{ background: pk.pop ? "linear-gradient(135deg,rgba(124,92,252,.12),rgba(92,224,214,.08))" : "var(--b1)", border:`2px solid ${pk.pop ? "var(--ac)" : "var(--br)"}`, borderRadius:18, padding:22, cursor:"pointer", position:"relative", textAlign:"center" }}>
-              {pk.pop && <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:"linear-gradient(135deg,var(--ac),var(--ac2))", color:"#fff", fontSize:10, fontWeight:700, padding:"3px 14px", borderRadius:20, letterSpacing:.5 }}>EN POPÜLER</div>}
-              {pk.save && <div style={{ position:"absolute", top:10, right:10, background:"var(--g1s)", color:"var(--g1)", fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:8 }}>%{pk.save}</div>}
-              <div style={{ fontSize:28, marginBottom:8 }}>{pk.icon}</div>
-              <div style={{ fontSize:13, fontWeight:600, color:"var(--t2)" }}>{pk.name}</div>
-              <div style={{ fontSize:30, fontWeight:800, margin:"8px 0 2px" }}>{pk.tokens.toLocaleString()}</div>
-              <div style={{ fontSize:11, color:"var(--t3)", marginBottom:12 }}>{pk.sub}</div>
-              <div style={{ fontSize:22, fontWeight:700, color:"var(--ac)" }}>{pk.price}₺</div>
-              <div style={{ marginTop:14, padding:"9px 0", borderRadius:12, fontSize:13, fontWeight:700, background: pk.pop ? "linear-gradient(135deg,var(--ac),var(--ac2))" : "var(--b3)", color: pk.pop ? "#fff" : "var(--t2)" }}>Satın Al</div>
-            </div>
-          ))}
-        </div>
-        <p style={{ textAlign:"center", color:"var(--t3)", fontSize:11, marginTop:18 }}>🔒 Güvenli ödeme altyapısı ile korunmaktadır</p>
-      </div>
-    </div>
-  );
-
-  // ── Payment Modal ──
-  const PayModal = () => showPay && (
-    <div style={{ position:"fixed", inset:0, zIndex:9500, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.85)", backdropFilter:"blur(14px)" }}>
-      <div style={{ background:"var(--b2)", border:"1px solid var(--br)", borderRadius:22, width:400, padding:30, animation:"fadeUp .3s ease" }}>
-        <div style={{ textAlign:"center", marginBottom:22 }}>
-          <div style={{ fontSize:40, marginBottom:8 }}>{showPay.icon}</div>
-          <h3 style={{ fontSize:20, fontWeight:700 }}>{showPay.name}</h3>
-          <p style={{ color:"var(--t3)", fontSize:13 }}>{showPay.tokens.toLocaleString()} kredi</p>
-        </div>
-        <div style={{ background:"var(--b1)", border:"1px solid var(--br)", borderRadius:14, padding:20, marginBottom:16 }}>
-          <div style={{ fontSize:11, fontWeight:600, color:"var(--t3)", marginBottom:12, textTransform:"uppercase", letterSpacing:1.5 }}>💳 Kart Bilgileri</div>
-          {["Kart Numarası","Ad Soyad"].map(l => (<div key={l} style={{ marginBottom:10 }}><label style={{ fontSize:11, color:"var(--t3)", marginBottom:3, display:"block" }}>{l}</label><input placeholder={l === "Kart Numarası" ? "0000 0000 0000 0000" : "AD SOYAD"} style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1px solid var(--br)", background:"var(--b2)", color:"var(--t1)", fontSize:14, fontFamily:"'Sora'" }} /></div>))}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <div><label style={{ fontSize:11, color:"var(--t3)", marginBottom:3, display:"block" }}>SKT</label><input placeholder="AA/YY" maxLength={5} style={{ width:"100%", padding:"10px", borderRadius:10, border:"1px solid var(--br)", background:"var(--b2)", color:"var(--t1)", fontSize:14, fontFamily:"'Sora'" }} /></div>
-            <div><label style={{ fontSize:11, color:"var(--t3)", marginBottom:3, display:"block" }}>CVV</label><input placeholder="•••" maxLength={4} type="password" style={{ width:"100%", padding:"10px", borderRadius:10, border:"1px solid var(--br)", background:"var(--b2)", color:"var(--t1)", fontSize:14, fontFamily:"'Sora'" }} /></div>
+          <button onClick={handleGoogle} style={{ width: "100%", padding: "11px 0", borderRadius: 12, border: "1px solid #252538", background: "#07070c", color: "#ededf5", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16, transition: "all .2s" }} className="hv">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84z"/></svg>
+            Google ile {authTab === "login" ? "Giriş Yap" : "Kayıt Ol"}
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ flex: 1, height: 1, background: "#252538" }} /><span style={{ fontSize: 11, color: "#55556e" }}>veya email ile</span><div style={{ flex: 1, height: 1, background: "#252538" }} />
           </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, color: "#55556e", display: "block", marginBottom: 5 }}>Email</label>
+            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="ornek@email.com" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #252538", background: "#07070c", color: "#ededf5", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, color: "#55556e", display: "block", marginBottom: 5 }}>Şifre</label>
+            <input type="password" value={authPass} onChange={e => setAuthPass(e.target.value)} onKeyDown={e => e.key === "Enter" && (authTab === "login" ? handleLogin() : handleRegister())} placeholder="••••••••" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #252538", background: "#07070c", color: "#ededf5", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+          </div>
+          {authErr && <div style={{ fontSize: 12, color: authErr.startsWith("OK:") ? "#22c55e" : "#ef4444", marginBottom: 12, padding: "8px 12px", borderRadius: 8, background: authErr.startsWith("OK:") ? "rgba(34,197,94,.1)" : "rgba(239,68,68,.1)" }}>{authErr.replace("OK:", "")}</div>}
+          <button onClick={authTab === "login" ? handleLogin : handleRegister} disabled={authBusy || !authEmail || !authPass} style={{ width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: (!authEmail || !authPass || authBusy) ? "#252538" : "linear-gradient(135deg,#7c5cfc,#5ce0d6)", color: (!authEmail || !authPass || authBusy) ? "#55556e" : "#fff", fontSize: 15, fontWeight: 700, cursor: (!authEmail || !authPass || authBusy) ? "default" : "pointer" }}>
+            {authBusy ? "..." : authTab === "login" ? "Giriş Yap" : "Kayıt Ol"}
+          </button>
         </div>
-        <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 16px", background:"var(--b1)", borderRadius:12, marginBottom:14, border:"1px solid var(--br)" }}>
-          <span style={{ color:"var(--t2)" }}>Toplam</span>
-          <span style={{ fontSize:24, fontWeight:800, background:"linear-gradient(135deg,var(--ac),var(--ac2))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>{showPay.price}₺</span>
-        </div>
-        <button onClick={() => buyPkg(showPay)} className="btn-g" style={{ width:"100%", padding:14, borderRadius:14, border:"none", background:"linear-gradient(135deg,var(--ac),var(--ac2))", color:"#fff", fontSize:16, fontWeight:700, cursor:"pointer", fontFamily:"'Sora'" }}>🔒 Ödeme Yap</button>
-        <button onClick={() => setShowPay(null)} className="hv" style={{ width:"100%", marginTop:8, padding:10, borderRadius:12, border:"1px solid var(--br)", background:"transparent", color:"var(--t3)", cursor:"pointer", fontFamily:"'Sora'", fontSize:12 }}>İptal</button>
       </div>
     </div>
   );
 
-  // ── Log Modal ──
-  const LogModal = () => showLog && (
-    <div style={{ position:"fixed", inset:0, zIndex:8000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.65)", backdropFilter:"blur(8px)" }} onClick={() => setShowLog(false)}>
-      <div onClick={e => e.stopPropagation()} style={{ background:"var(--b2)", border:"1px solid var(--br)", borderRadius:18, width:420, maxHeight:"70vh", overflow:"auto", padding:24, animation:"fadeUp .3s ease" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-          <h3 style={{ fontSize:17, fontWeight:700 }}>İşlem Geçmişi</h3>
-          <button onClick={() => setShowLog(false)} style={{ background:"none", border:"none", color:"var(--t3)", fontSize:18, cursor:"pointer" }}>✕</button>
+  // ── GENERATING (Sohbet UI) ──
+  if (pg === "gen") return (
+    <div style={{ minHeight: "100vh", background: "#07070c", display: "flex", flexDirection: "column" }}>
+      <style>{G + `
+        @keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
+      `}</style>
+
+      {/* Top bar */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, padding: "11px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(7,7,12,.92)", backdropFilter: "blur(24px)", borderBottom: "1px solid #1a1a28" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, animation: "glow 3s ease infinite" }}>⚡</div>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>AppForge<span style={{ background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>.ai</span></span>
         </div>
-        {tLog.length === 0 ? <p style={{ color:"var(--t3)", textAlign:"center", padding:24, fontSize:13 }}>Henüz işlem yok</p> : tLog.map(l => (
-          <div key={l.id} style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderBottom:"1px solid var(--br)" }}>
-            <div><div style={{ fontSize:12, fontWeight:500 }}>{l.a === "build" ? "⚡ Oluşturma" : l.a === "edit" ? "✏️ Düzenleme" : l.a === "test" ? "🧪 Test" : l.a === "fix" ? "🔧 Düzeltme" : "💳 Yükleme"}</div><div style={{ fontSize:10, color:"var(--t3)" }}>{l.t}</div></div>
-            <div style={{ textAlign:"right" }}><div style={{ fontSize:13, fontWeight:700, color: l.c > 0 ? "var(--r1)" : l.c === 0 ? "var(--g1)" : "var(--g1)" }}>{l.c > 0 ? `-${l.c}` : l.c === 0 ? "Ücretsiz" : `+${Math.abs(l.c)}`}</div><div style={{ fontSize:10, color:"var(--t3)" }}>{l.n}</div></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 14px", borderRadius: 20, background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.2)" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", animation: "pulseDot 1.4s infinite" }} />
+          <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>AI Kodluyor</span>
+        </div>
+      </div>
+
+      {/* Chat messages */}
+      <div style={{ flex: 1, maxWidth: 700, width: "100%", margin: "0 auto", padding: "88px 20px 110px", display: "flex", flexDirection: "column", gap: 16, overflowY: "auto" }}>
+
+        {/* User bubble */}
+        <div className="cmsg" style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "flex-end" }}>
+          <div style={{ maxWidth: "72%", background: "linear-gradient(135deg,#7c5cfc,rgba(92,224,214,.8))", borderRadius: "18px 18px 4px 18px", padding: "12px 18px", fontSize: 14, lineHeight: 1.65, color: "#fff", boxShadow: "0 6px 28px rgba(124,92,252,.25)" }}>
+            {genPrompt}
+          </div>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#16161f", border: "1px solid #252538", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>👤</div>
+        </div>
+
+        {/* AI step messages */}
+        {genSteps.map((s, i) => (
+          <div key={i} className="cmsg" style={{ display: "flex", gap: 12, alignItems: "flex-start", animationDelay: `${i * .1}s` }}>
+            <div style={{ width: 42, height: 42, borderRadius: "50%", background: s.done ? "linear-gradient(135deg,#22c55e,#16a34a)" : "linear-gradient(135deg,#7c5cfc,#5ce0d6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0, boxShadow: `0 4px 18px ${s.done ? "rgba(34,197,94,.22)" : "rgba(124,92,252,.22)"}`, transition: "all .6s", position: "relative" }}>
+              {s.icon}
+              {!s.done && <div style={{ position: "absolute", inset: -4, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "#7c5cfc", animation: "spin 1s linear infinite" }} />}
+            </div>
+            <div style={{ flex: 1, background: s.done ? "rgba(34,197,94,.05)" : "#0f0f18", border: `1px solid ${s.done ? "rgba(34,197,94,.15)" : "#1a1a28"}`, borderRadius: "4px 18px 18px 18px", padding: "13px 17px", transition: "all .5s" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: s.done ? "#22c55e" : "#7c5cfc", textTransform: "uppercase", letterSpacing: .6 }}>{s.done ? "✓ Tamamlandı" : "⟳ İşleniyor"}</span>
+                {!s.done && <div style={{ display: "flex", gap: 3 }}>{[0, 1, 2].map(j => <span key={j} style={{ width: 5, height: 5, borderRadius: "50%", background: "#7c5cfc", display: "inline-block", animation: "typing .9s ease infinite", animationDelay: `${j * .18}s`, opacity: .7 }} />)}</div>}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#ededf5", marginBottom: s.done ? 5 : 0 }}>{s.title}</div>
+              {s.done && <div style={{ fontSize: 12, color: "#55556e", lineHeight: 1.6, marginBottom: 8 }}>{s.detail}</div>}
+              {s.done && (
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {["HTML", "CSS", "JavaScript", "Responsive", "Dark Theme"].slice(0, Math.min(i + 2, 5)).map(t => (
+                    <span key={t} style={{ padding: "2px 9px", borderRadius: 6, background: "rgba(124,92,252,.1)", color: "#7c5cfc", fontSize: 10, fontWeight: 600 }}>{t}</span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ))}
-      </div>
-    </div>
-  );
 
-  const sc = { critical:"var(--r1)", warning:"var(--w1)", info:"var(--c1)" };
-  const sb = { critical:"var(--r1s)", warning:"var(--w1s)", info:"var(--c1s)" };
-
-  // ── Test Panel ──
-  const TestPanel = () => {
-    if (!testRes && !testing) return null;
-    return (
-      <div style={{ position:"absolute", right:0, top:0, bottom:0, width:340, background:"var(--b2)", borderLeft:"1px solid var(--br)", zIndex:10, overflow:"auto", animation:"slideR .3s ease", display:"flex", flexDirection:"column" }}>
-        <div style={{ padding:"13px 16px", borderBottom:"1px solid var(--br)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontWeight:700, fontSize:14 }}>🧪 Test Sonuçları</span>
-          <button onClick={() => { setTestRes(null); setTesting(false); }} style={{ background:"none", border:"none", color:"var(--t3)", cursor:"pointer", fontSize:15 }}>✕</button>
-        </div>
-        {testing && <div style={{ padding:18 }}>{tSteps.map((s, i) => (<div key={i} style={{ display:"flex", alignItems:"center", gap:9, marginBottom:8, animation:`fadeIn .3s ease ${i * .08}s both` }}><div style={{ width:20, height:20, borderRadius:6, background: s.d ? "var(--g1s)" : "var(--b3)", border:`1px solid ${s.d ? "var(--g1)" : "var(--br)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, color: s.d ? "var(--g1)" : "var(--t3)" }}>{s.d ? "✓" : "·"}</div><span style={{ fontSize:12, color: s.d ? "var(--t1)" : "var(--t3)" }}>{s.l}</span></div>))}</div>}
-        {testRes && (
-          <div style={{ padding:16, flex:1, overflow:"auto" }}>
-            <div style={{ textAlign:"center", marginBottom:18 }}>
-              <div style={{ width:72, height:72, borderRadius:"50%", margin:"0 auto 10px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, fontWeight:800, background: testRes.score >= 80 ? "var(--g1s)" : testRes.score >= 50 ? "var(--w1s)" : "var(--r1s)", border:`3px solid ${testRes.score >= 80 ? "var(--g1)" : testRes.score >= 50 ? "var(--w1)" : "var(--r1)"}`, color: testRes.score >= 80 ? "var(--g1)" : testRes.score >= 50 ? "var(--w1)" : "var(--r1)" }}>{testRes.score}</div>
-              <p style={{ fontSize:12, color:"var(--t2)", lineHeight:1.4 }}>{testRes.summary}</p>
+        {/* Live terminal - 2. adımdan sonra */}
+        {genSteps.filter(s => s.done).length >= 2 && (
+          <div className="cmsg" style={{ display: "flex", gap: 12, animationDelay: ".25s" }}>
+            <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#0d1117", border: "1px solid #30363d", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>💻</div>
+            <div style={{ flex: 1, background: "#0d1117", border: "1px solid #30363d", borderRadius: "4px 18px 18px 18px", padding: "14px 18px", fontFamily: "'Fira Code',monospace", fontSize: 11.5, lineHeight: 1.9, position: "relative", overflow: "hidden" }}>
+              <div style={{ color: "#8b949e", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>▸ appforge / ai-code-generator</div>
+              <div><span style={{ color: "#ff7b72" }}>const</span> <span style={{ color: "#79c0ff" }}>app</span> <span style={{ color: "#ff7b72" }}>=</span> <span style={{ color: "#d2a8ff" }}>await</span> <span style={{ color: "#ffa657" }}>forge</span>(<span style={{ color: "#a5d6ff" }}>"{genPrompt.substring(0, 28)}{genPrompt.length > 28 ? "..." : ""}"</span>);</div>
+              <div><span style={{ color: "#d2a8ff" }}>await</span> app.<span style={{ color: "#7ee787" }}>generateUI</span>();</div>
+              <div><span style={{ color: "#d2a8ff" }}>await</span> app.<span style={{ color: "#7ee787" }}>applyStyles</span>(<span style={{ color: "#a5d6ff" }}>"dark-pro"</span>);</div>
+              {genSteps.filter(s => s.done).length >= 4 && <div><span style={{ color: "#d2a8ff" }}>await</span> app.<span style={{ color: "#7ee787" }}>optimize</span>();</div>}
+              <div style={{ color: "#7ee787", marginTop: 6 }}><span style={{ color: "#e6edf3" }}>// Oluşturuluyor</span><span style={{ animation: "blink 1s infinite" }}>▌</span></div>
+              <div style={{ position: "absolute", left: 0, right: 0, height: "1px", background: "linear-gradient(90deg,transparent,rgba(126,231,135,.1),transparent)", animation: "scanline 3s linear infinite", pointerEvents: "none" }} />
             </div>
-            {testRes.metrics && Object.keys(testRes.metrics).length > 0 && <div style={{ marginBottom:14 }}>{Object.entries(testRes.metrics).map(([k, v]) => (<div key={k} style={{ marginBottom:7 }}><div style={{ display:"flex", justifyContent:"space-between", fontSize:11, marginBottom:2 }}><span style={{ color:"var(--t2)", textTransform:"uppercase" }}>{k}</span><span style={{ fontWeight:700, color: v >= 80 ? "var(--g1)" : v >= 50 ? "var(--w1)" : "var(--r1)" }}>{v}</span></div><div style={{ height:3, borderRadius:2, background:"var(--b3)" }}><div style={{ width:`${v}%`, height:"100%", borderRadius:2, background: v >= 80 ? "var(--g1)" : v >= 50 ? "var(--w1)" : "var(--r1)", transition:"width .8s ease" }} /></div></div>))}</div>}
-            {testRes.issues?.length > 0 && <div style={{ marginBottom:14 }}>{testRes.issues.map((is, i) => (<div key={i} style={{ background:"var(--b1)", border:"1px solid var(--br)", borderRadius:10, padding:10, marginBottom:6 }}><div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:4 }}><span style={{ padding:"1px 7px", borderRadius:6, fontSize:9, fontWeight:700, background: sb[is.severity], color: sc[is.severity], textTransform:"uppercase" }}>{is.severity}</span><span style={{ fontSize:12, fontWeight:600 }}>{is.title}</span></div><p style={{ fontSize:11, color:"var(--t3)", lineHeight:1.4 }}>{is.description}</p>{is.fix && <p style={{ fontSize:10, color:"var(--c1)", marginTop:3 }}>💡 {is.fix}</p>}</div>))}</div>}
-            {testRes.issues?.length > 0 && <button onClick={autoFix} disabled={gen} style={{ width:"100%", padding:11, borderRadius:10, border:"none", background:"linear-gradient(135deg,var(--g1),#16a34a)", color:"#fff", fontSize:13, fontWeight:700, cursor: gen ? "wait" : "pointer", fontFamily:"'Sora'", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔧 Otomatik Düzelt <span style={{ fontSize:10, opacity:.8 }}>({COSTS.fix} kredi)</span></button>}
           </div>
         )}
+
+        <div ref={messagesEndRef} />
       </div>
-    );
-  };
 
-  // ── Auth Loading ──
-  if (authLoading) return (
-    <div style={{ minHeight:"100vh", background:"#07070c", display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid #1f1f2e", borderTopColor:"#7c5cfc", animation:"spin 1s linear infinite" }} />
-    </div>
-  );
-
-  // ── Auth Screen ──
-  if (!user) return (
-    <div style={{ minHeight:"100vh", background:"#07070c", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Sora',sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap'); @keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div style={{ width:400, animation:"fadeUp .5s ease" }}>
-        {/* Logo */}
-        <div style={{ textAlign:"center", marginBottom:32 }}>
-          <div style={{ width:52, height:52, borderRadius:16, background:"linear-gradient(135deg,#7c5cfc,#5ce0d6)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, margin:"0 auto 12px" }}>⚡</div>
-          <h1 style={{ fontSize:26, fontWeight:800, color:"#ededf5", letterSpacing:"-1px" }}>AppForge<span style={{ background:"linear-gradient(135deg,#7c5cfc,#5ce0d6)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>.ai</span></h1>
-          <p style={{ fontSize:13, color:"#55556e", marginTop:4 }}>AI destekli uygulama oluşturucu</p>
-        </div>
-
-        {/* Card */}
-        <div style={{ background:"#0f0f18", border:"1px solid #252538", borderRadius:20, padding:28 }}>
-          {/* Tabs */}
-          <div style={{ display:"flex", background:"#07070c", borderRadius:12, padding:4, marginBottom:22 }}>
-            {["login","register"].map(t => (
-              <button key={t} onClick={() => { setAuthPg(t); setAuthErr(""); }} style={{ flex:1, padding:"9px 0", borderRadius:9, border:"none", background: authPg===t ? "#7c5cfc" : "transparent", color: authPg===t ? "#fff" : "#55556e", fontSize:13, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>
-                {t==="login" ? "Giriş Yap" : "Kayıt Ol"}
-              </button>
-            ))}
+      {/* Progress bar */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "13px 28px", background: "rgba(7,7,12,.95)", backdropFilter: "blur(20px)", borderTop: "1px solid #1a1a28", zIndex: 100 }}>
+        <div style={{ maxWidth: 700, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+            <span style={{ fontSize: 12, color: "#55556e" }}>{genSteps.find(s => !s.done)?.title || "Tamamlanıyor..."}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#7c5cfc" }}>{Math.round((genSteps.filter(s => s.done).length / Math.max(genSteps.length, 1)) * 100)}%</span>
           </div>
-
-          {/* Google */}
-          <button onClick={handleGoogle} style={{ width:"100%", padding:"11px 0", borderRadius:12, border:"1px solid #252538", background:"#07070c", color:"#ededf5", fontSize:14, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:16, transition:"all .2s" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Google ile {authPg==="login" ? "Giriş Yap" : "Kayıt Ol"}
-          </button>
-
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-            <div style={{ flex:1, height:1, background:"#252538" }} />
-            <span style={{ fontSize:11, color:"#55556e" }}>veya email ile</span>
-            <div style={{ flex:1, height:1, background:"#252538" }} />
+          <div style={{ height: 3, background: "#1a1a28", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg,#7c5cfc,#5ce0d6)", width: `${(genSteps.filter(s => s.done).length / Math.max(genSteps.length, 1)) * 100}%`, transition: "width .8s cubic-bezier(.4,0,.2,1)", boxShadow: "0 0 10px rgba(124,92,252,.4)" }} />
           </div>
-
-          {/* Form */}
-          <div style={{ marginBottom:12 }}>
-            <label style={{ fontSize:11, color:"#55556e", display:"block", marginBottom:5 }}>Email</label>
-            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="ornek@email.com" style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1px solid #252538", background:"#07070c", color:"#ededf5", fontSize:14, outline:"none" }} />
-          </div>
-          <div style={{ marginBottom:16 }}>
-            <label style={{ fontSize:11, color:"#55556e", display:"block", marginBottom:5 }}>Şifre</label>
-            <input type="password" value={authPass} onChange={e => setAuthPass(e.target.value)} onKeyDown={e => e.key==="Enter" && (authPg==="login" ? handleLogin() : handleRegister())} placeholder="••••••••" style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1px solid #252538", background:"#07070c", color:"#ededf5", fontSize:14, outline:"none" }} />
-          </div>
-
-          {authErr && <div style={{ fontSize:12, color: authErr.startsWith("✅") ? "#22c55e" : "#ef4444", marginBottom:12, padding:"8px 12px", borderRadius:8, background: authErr.startsWith("✅") ? "rgba(34,197,94,.1)" : "rgba(239,68,68,.1)" }}>{authErr}</div>}
-
-          <button onClick={authPg==="login" ? handleLogin : handleRegister} disabled={authBusy || !authEmail || !authPass} style={{ width:"100%", padding:"12px 0", borderRadius:12, border:"none", background: (!authEmail||!authPass||authBusy) ? "#252538" : "linear-gradient(135deg,#7c5cfc,#5ce0d6)", color: (!authEmail||!authPass||authBusy) ? "#55556e" : "#fff", fontSize:15, fontWeight:700, cursor: (!authEmail||!authPass||authBusy) ? "default" : "pointer" }}>
-            {authBusy ? "..." : authPg==="login" ? "Giriş Yap" : "Kayıt Ol"}
-          </button>
         </div>
       </div>
     </div>
   );
 
-  // Loading
-  if (authLoading) return (
-    <div style={{ minHeight:"100vh", background:"#07070c", display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
-      <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid #252538", borderTopColor:"#7c5cfc", animation:"spin 1s linear infinite" }} />
-    </div>
-  );
-
-  // Auth ekrani
-  if (!user) return (
-    <div style={{ minHeight:"100vh", background:"#07070c", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Sora',sans-serif" }}>
-      <style>{"@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap'); @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}"}</style>
-      <div style={{ width:400, animation:"fadeUp .5s ease" }}>
-        <div style={{ textAlign:"center", marginBottom:32 }}>
-          <div style={{ width:52, height:52, borderRadius:16, background:"linear-gradient(135deg,#7c5cfc,#5ce0d6)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, margin:"0 auto 12px" }}>⚡</div>
-          <h1 style={{ fontSize:26, fontWeight:800, color:"#ededf5", letterSpacing:"-1px" }}>AppForge<span style={{ background:"linear-gradient(135deg,#7c5cfc,#5ce0d6)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>.ai</span></h1>
-          <p style={{ fontSize:13, color:"#55556e", marginTop:4 }}>AI destekli uygulama oluşturucu</p>
-        </div>
-        <div style={{ background:"#0f0f18", border:"1px solid #252538", borderRadius:20, padding:28 }}>
-          <div style={{ display:"flex", background:"#07070c", borderRadius:12, padding:4, marginBottom:22 }}>
-            {["login","register"].map(t => (
-              <button key={t} onClick={() => { setAuthPg(t); setAuthErr(""); }} style={{ flex:1, padding:"9px 0", borderRadius:9, border:"none", background: authPg===t ? "#7c5cfc" : "transparent", color: authPg===t ? "#fff" : "#55556e", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-                {t==="login" ? "Giriş Yap" : "Kayıt Ol"}
-              </button>
-            ))}
-          </div>
-          <button onClick={handleGoogle} style={{ width:"100%", padding:"11px 0", borderRadius:12, border:"1px solid #252538", background:"#07070c", color:"#ededf5", fontSize:14, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:16 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84z"/></svg>
-            Google ile {authPg==="login" ? "Giriş Yap" : "Kayıt Ol"}
-          </button>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-            <div style={{ flex:1, height:1, background:"#252538" }} /><span style={{ fontSize:11, color:"#55556e" }}>veya email ile</span><div style={{ flex:1, height:1, background:"#252538" }} />
-          </div>
-          <div style={{ marginBottom:12 }}>
-            <label style={{ fontSize:11, color:"#55556e", display:"block", marginBottom:5 }}>Email</label>
-            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="ornek@email.com" style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1px solid #252538", background:"#07070c", color:"#ededf5", fontSize:14, outline:"none", boxSizing:"border-box" }} />
-          </div>
-          <div style={{ marginBottom:16 }}>
-            <label style={{ fontSize:11, color:"#55556e", display:"block", marginBottom:5 }}>Şifre</label>
-            <input type="password" value={authPass} onChange={e => setAuthPass(e.target.value)} onKeyDown={e => e.key==="Enter" && (authPg==="login" ? handleLogin() : handleRegister())} placeholder="••••••••" style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1px solid #252538", background:"#07070c", color:"#ededf5", fontSize:14, outline:"none", boxSizing:"border-box" }} />
-          </div>
-          {authErr && <div style={{ fontSize:12, color: authErr.startsWith("OK:") ? "#22c55e" : "#ef4444", marginBottom:12, padding:"8px 12px", borderRadius:8, background: authErr.startsWith("OK:") ? "rgba(34,197,94,.1)" : "rgba(239,68,68,.1)" }}>{authErr.replace("OK:","")}</div>}
-          <button onClick={authPg==="login" ? handleLogin : handleRegister} disabled={authBusy||!authEmail||!authPass} style={{ width:"100%", padding:"12px 0", borderRadius:12, border:"none", background:(!authEmail||!authPass||authBusy)?"#252538":"linear-gradient(135deg,#7c5cfc,#5ce0d6)", color:(!authEmail||!authPass||authBusy)?"#55556e":"#fff", fontSize:15, fontWeight:700, cursor:(!authEmail||!authPass||authBusy)?"default":"pointer" }}>
-            {authBusy ? "..." : authPg==="login" ? "Giriş Yap" : "Kayıt Ol"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ════════════════════════════════════════
-  // HOME
-  // ════════════════════════════════════════
-  if (pg === "home" && !gen) return (
-    <div style={{ minHeight:"100vh", background:"var(--b1)" }}>
+  // ── HOME ──
+  if (pg === "home") return (
+    <div style={{ minHeight: "100vh", background: "#07070c", overflowY: "auto" }}>
       <style>{G}</style>
-      <Toast /> <PriceModal /> <PayModal /> <LogModal /> <Orbs />
+
+      {/* Orbs */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
+        <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,92,252,.07), transparent 70%)", top: `${-15 + mousePos.y * 8}%`, right: `${-8 + mousePos.x * 5}%`, transition: "top .8s, right .8s", animation: "morph 15s ease-in-out infinite" }} />
+        <div style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(92,224,214,.05), transparent 70%)", bottom: `${-10 + mousePos.y * 6}%`, left: `${-5 + mousePos.x * 4}%`, transition: "bottom .8s, left .8s", animation: "morph 12s ease-in-out infinite reverse" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(124,92,252,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(124,92,252,.025) 1px, transparent 1px)", backgroundSize: "80px 80px" }} />
+      </div>
 
       {/* Nav */}
-      <nav style={{ position:"fixed", top:0, left:0, right:0, zIndex:100, padding:"10px 28px", display:"flex", justifyContent:"space-between", alignItems:"center", background:"rgba(6,6,10,.8)", backdropFilter:"blur(24px)", borderBottom:"1px solid var(--br)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:36, height:36, borderRadius:11, background:"linear-gradient(135deg,var(--ac),var(--ac2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, animation:"glow 3s ease infinite" }}>⚡</div>
-          <span style={{ fontSize:20, fontWeight:700, letterSpacing:"-.5px" }}>AppForge<span style={{ background:"linear-gradient(135deg,var(--ac),var(--ac2))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>.ai</span></span>
+      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, padding: "10px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(7,7,12,.85)", backdropFilter: "blur(24px)", borderBottom: "1px solid #1a1a28" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, animation: "glow 3s ease infinite" }}>⚡</div>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-.5px" }}>AppForge<span style={{ background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>.ai</span></span>
         </div>
-        <CreditBar />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.15)" }}>
+            <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700 }}>◆ {tok.toLocaleString()}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 11px", borderRadius: 8, background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.15)" }}>
+            <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>{freeLeft()} ücretsiz</span>
+          </div>
+          {projs.length > 0 && (
+            <button onClick={() => { setPreview(projs[0]); setPg("preview"); }} className="hv" style={{ padding: "5px 14px", borderRadius: 9, border: "1px solid #252538", background: "transparent", color: "#9898b8", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
+              Projelerim ({projs.length})
+            </button>
+          )}
+          <button onClick={handleLogout} className="hv" style={{ padding: "5px 10px", borderRadius: 9, border: "1px solid #252538", background: "transparent", color: "#55556e", fontSize: 13, cursor: "pointer" }}>⏻</button>
+        </div>
       </nav>
 
       {/* Hero */}
-      <div style={{ maxWidth:860, margin:"0 auto", padding:"120px 24px 40px", textAlign:"center", position:"relative", zIndex:1 }}>
-        {/* Orbiting dots */}
-        <div style={{ position:"absolute", top:"50%", left:"50%", width:0, height:0 }}>
-          {[0,1,2,3,4].map(i => <div key={i} style={{ position:"absolute", width:6, height:6, borderRadius:"50%", background:`hsl(${260 + i * 30}, 80%, 65%)`, animation:`orbit ${10 + i * 3}s linear infinite`, animationDelay:`${i * -2}s`, opacity:.3 }} />)}
+      <div style={{ maxWidth: 820, margin: "0 auto", padding: "120px 24px 40px", textAlign: "center", position: "relative", zIndex: 1 }}>
+        <div style={{ position: "absolute", top: "50%", left: "50%", width: 0, height: 0 }}>
+          {[0, 1, 2, 3].map(i => <div key={i} style={{ position: "absolute", width: 6, height: 6, borderRadius: "50%", background: `hsl(${260 + i * 25}, 80%, 65%)`, animation: `orbit ${10 + i * 3}s linear infinite`, animationDelay: `${i * -2}s`, opacity: .25 }} />)}
         </div>
-
-        <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 18px", borderRadius:100, background:"var(--acs)", border:"1px solid rgba(124,92,252,.2)", marginBottom:28, fontSize:13, fontWeight:500, color:"var(--ac)", animation:"fadeUp .6s ease" }}>
-          <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--g1)", animation:"pulseDot 2s infinite" }} />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 18px", borderRadius: 100, background: "rgba(124,92,252,.08)", border: "1px solid rgba(124,92,252,.18)", marginBottom: 28, fontSize: 13, color: "#7c5cfc", fontWeight: 500, animation: "fadeUp .6s ease" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", animation: "pulseDot 2s infinite" }} />
           Yapay zeka ile anında uygulama oluştur
         </div>
-
-        <h1 style={{ fontSize:"clamp(36px,6vw,68px)", fontWeight:800, lineHeight:1.05, letterSpacing:"-3px", marginBottom:20, animation:"fadeUp .6s ease .1s both" }}>
+        <h1 style={{ fontSize: "clamp(32px,5.5vw,64px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: "-3px", marginBottom: 18, animation: "fadeUp .6s ease .1s both" }}>
           Hayal et,<br />
-          <span style={{ background:"linear-gradient(135deg,var(--ac),var(--ac2),var(--ac3),var(--ac))", backgroundSize:"300% 300%", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", animation:"gradient 6s ease infinite" }}>
-            biz kodlayalım.
-          </span>
+          <span style={{ background: "linear-gradient(135deg,#7c5cfc,#5ce0d6,#fc5c8c,#7c5cfc)", backgroundSize: "300% 300%", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "gradient 6s ease infinite" }}>biz kodlayalım.</span>
         </h1>
-
-        <p style={{ fontSize:17, color:"var(--t2)", maxWidth:520, margin:"0 auto 40px", lineHeight:1.65, animation:"fadeUp .6s ease .2s both" }}>
-          Saniyeler içinde tam çalışan web uygulamaları. Kodlama bilgisine gerek yok — sadece ne istediğini anlat.
+        <p style={{ fontSize: 16, color: "#9898b8", maxWidth: 500, margin: "0 auto 36px", lineHeight: 1.65, animation: "fadeUp .6s ease .2s both" }}>
+          Saniyeler içinde tam çalışan web uygulamaları. Kodlama bilgisine gerek yok.
         </p>
 
         {/* Input */}
-        <div style={{ background:"var(--b2)", border:"1px solid var(--br)", borderRadius:22, padding:5, maxWidth:660, margin:"0 auto", animation:"fadeUp .6s ease .3s both", position:"relative", overflow:"hidden" }}>
-          {/* Shimmer border effect */}
-          <div style={{ position:"absolute", inset:-1, borderRadius:23, background:"linear-gradient(90deg, transparent, rgba(124,92,252,.15), transparent)", backgroundSize:"200% 100%", animation:"shimmer 3s infinite", pointerEvents:"none" }} />
-          <textarea value={prompt} onChange={e => setPrompt(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (prompt.trim()) build(prompt); } }} placeholder="Bir müşteri takip sistemi oluştur..." rows={3} style={{ width:"100%", background:"transparent", border:"none", color:"var(--t1)", fontSize:16, fontFamily:"'Sora'", padding:"16px 20px", resize:"none", outline:"none", lineHeight:1.6, position:"relative", zIndex:1 }} />
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 14px", position:"relative", zIndex:1 }}>
-            <span style={{ fontSize:12, color:"var(--t3)" }}>
-              {freeLeft() > 0 ? `✨ Ücretsiz · ${freeLeft()} hak kaldı` : `◆ ${COSTS.build} kredi`}
-            </span>
-            <button className="btn-g" onClick={() => prompt.trim() && build(prompt)} disabled={!prompt.trim()} style={{ padding:"11px 28px", borderRadius:14, border:"none", background: !prompt.trim() ? "var(--b3)" : "linear-gradient(135deg,var(--ac),var(--ac2))", color: !prompt.trim() ? "var(--t3)" : "#fff", fontSize:15, fontWeight:700, fontFamily:"'Sora'", cursor: prompt.trim() ? "pointer" : "default", display:"flex", alignItems:"center", gap:8 }}>
-              Oluştur <span style={{ fontSize:18 }}>→</span>
-            </button>
-          </div>
+        <div style={{ background: "#0f0f18", border: "1px solid #252538", borderRadius: 20, padding: "4px 4px 4px 18px", maxWidth: 640, margin: "0 auto", animation: "fadeUp .6s ease .3s both", display: "flex", alignItems: "flex-end", gap: 8 }}>
+          <textarea
+            value={input}
+            onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; }}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (input.trim()) { build(input.trim()); setInput(""); } } }}
+            placeholder="Bir e-ticaret yönetim paneli oluştur..."
+            rows={2}
+            style={{ flex: 1, background: "transparent", border: "none", color: "#ededf5", fontSize: 15, fontFamily: "'Sora',sans-serif", resize: "none", outline: "none", lineHeight: 1.6, padding: "12px 0", maxHeight: 140, overflowY: "auto" }}
+          />
+          <button className="send" onClick={() => { if (input.trim()) { build(input.trim()); setInput(""); } }} disabled={!input.trim() || gen} style={{ width: 44, height: 44, borderRadius: 13, border: "none", background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", color: "#fff", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .2s", boxShadow: "0 2px 12px rgba(124,92,252,.3)", cursor: "pointer" }}>↑</button>
         </div>
+        <p style={{ fontSize: 11, color: "#55556e", marginTop: 10 }}>{freeLeft() > 0 ? `✨ ${freeLeft()} ücretsiz hak kaldı` : `◆ ${COSTS.build} kredi`} · Enter ile gönder</p>
       </div>
 
       {/* Templates */}
-      <div style={{ maxWidth:1100, margin:"0 auto", padding:"20px 24px 80px", position:"relative", zIndex:1 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:26 }}>
-          <div style={{ height:1, flex:1, background:"linear-gradient(90deg,transparent,var(--br),transparent)" }} />
-          <span style={{ fontSize:11, fontWeight:600, color:"var(--t3)", textTransform:"uppercase", letterSpacing:3 }}>veya şablonla başla</span>
-          <div style={{ height:1, flex:1, background:"linear-gradient(90deg,transparent,var(--br),transparent)" }} />
+      <div style={{ maxWidth: 1060, margin: "0 auto", padding: "0 24px 80px", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
+          <div style={{ height: 1, flex: 1, background: "linear-gradient(90deg,transparent,#252538,transparent)" }} />
+          <span style={{ fontSize: 10, fontWeight: 600, color: "#55556e", textTransform: "uppercase", letterSpacing: 3 }}>veya şablonla başla</span>
+          <div style={{ height: 1, flex: 1, background: "linear-gradient(90deg,transparent,#252538,transparent)" }} />
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))", gap:12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 10 }}>
           {TEMPLATES.map((t, i) => (
-            <div key={t.id} className="card-h" onClick={() => { setPrompt(t.p); build(t.p); }} style={{ background:"var(--b2)", border:"1px solid var(--br)", borderRadius:16, padding:20, cursor:"pointer", animation:`fadeUp .5s ease ${i * .04}s both`, position:"relative", overflow:"hidden" }}>
-              <div style={{ position:"absolute", top:0, right:0, padding:"4px 10px", borderRadius:"0 16px 0 10px", background:"var(--b3)", fontSize:9, fontWeight:600, color:"var(--t3)", textTransform:"uppercase", letterSpacing:1 }}>{t.cat}</div>
-              <div style={{ fontSize:28, marginBottom:10 }}>{t.icon}</div>
-              <div style={{ fontWeight:700, fontSize:14, marginBottom:4 }}>{t.name}</div>
-              <div style={{ fontSize:12, color:"var(--t3)", lineHeight:1.5 }}>{t.p.substring(0, 60)}…</div>
+            <div key={i} className="card-h" onClick={() => { build(t.p); }} style={{ background: "#0f0f18", border: "1px solid #1a1a28", borderRadius: 14, padding: 18, cursor: "pointer", animation: `fadeUp .5s ease ${i * .04}s both` }}>
+              <div style={{ fontSize: 26, marginBottom: 10 }}>{t.icon}</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{t.name}</div>
+              <div style={{ fontSize: 11, color: "#55556e", lineHeight: 1.5 }}>{t.p.substring(0, 55)}…</div>
             </div>
           ))}
         </div>
@@ -654,112 +489,88 @@ export default function App() {
     </div>
   );
 
-  // ════════════════════════════════════════
-  // GENERATING
-  // ════════════════════════════════════════
-  if (gen) return (
-    <div style={{ minHeight:"100vh", background:"var(--b1)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <style>{G}</style><Toast /><Orbs />
-      <div style={{ textAlign:"center", maxWidth:380, animation:"fadeUp .5s ease", position:"relative", zIndex:1 }}>
-        {/* Animated rings */}
-        <div style={{ position:"relative", width:100, height:100, margin:"0 auto 32px" }}>
-          <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"3px solid var(--br)", borderTopColor:"var(--ac)", animation:"spin 1.2s linear infinite" }} />
-          <div style={{ position:"absolute", inset:8, borderRadius:"50%", border:"2px solid var(--br)", borderBottomColor:"var(--ac2)", animation:"spin 1.8s linear infinite reverse" }} />
-          <div style={{ position:"absolute", inset:18, borderRadius:"50%", border:"2px solid var(--br)", borderLeftColor:"var(--ac3)", animation:"spin 2.5s linear infinite" }} />
-          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24 }}>⚡</div>
+  // ── PREVIEW ──
+  if (pg === "preview") return (
+    <div style={{ height: "100vh", background: "#07070c", display: "flex", overflow: "hidden" }}>
+      <style>{G}</style>
+
+      {/* Toast */}
+      {toast && <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, padding: "10px 18px", borderRadius: 12, background: toast.t === "ok" ? "#22c55e" : toast.t === "error" ? "#ef4444" : "#7c5cfc", color: "#fff", fontWeight: 600, fontSize: 13, boxShadow: "0 8px 32px rgba(0,0,0,.4)", animation: "fadeUp .3s ease" }}>{toast.m}</div>}
+
+      {/* Sidebar */}
+      {sideOpen && (
+        <div style={{ width: 260, minWidth: 260, background: "#0a0a12", borderRight: "1px solid #1a1a28", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "13px 14px 10px", borderBottom: "1px solid #1a1a28", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div onClick={() => setPg("home")} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg,#7c5cfc,#5ce0d6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>⚡</div>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>AppForge</span>
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={handleLogout} className="hv" style={{ background: "none", border: "none", color: "#55556e", cursor: "pointer", fontSize: 13, padding: "3px 7px", borderRadius: 6 }} title="Çıkış">⏻</button>
+              <button onClick={() => setSideOpen(false)} className="hv" style={{ background: "none", border: "none", color: "#55556e", cursor: "pointer", fontSize: 16, padding: "3px 6px", borderRadius: 6 }}>✕</button>
+            </div>
+          </div>
+
+          <div style={{ padding: "8px 10px" }}>
+            <button onClick={() => setPg("home")} className="hv" style={{ width: "100%", padding: "8px 0", borderRadius: 9, border: "1px dashed #1a1a28", background: "transparent", color: "#9898b8", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>＋ Yeni Proje</button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#55556e", textTransform: "uppercase", letterSpacing: 2, padding: "4px 8px 8px" }}>Projeler</div>
+            {projs.map(p => (
+              <div key={p.id} className={`pj ${p.id === actProj ? "active" : ""}`} onClick={() => { setActProj(p.id); setPreview(p); setCodeView(false); }} style={{ padding: "9px 10px", borderRadius: 9, cursor: "pointer", marginBottom: 3, border: "1px solid transparent", transition: "all .2s" }}>
+                <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                <div style={{ fontSize: 10, color: "#55556e", marginTop: 2 }}>{p.date}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Edit input */}
+          <div style={{ borderTop: "1px solid #1a1a28", padding: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#55556e", marginBottom: 7 }}>✏️ Değişiklik Yap</div>
+            <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+              <textarea
+                id="editInput"
+                placeholder="Ne değiştirmek istiyorsun?"
+                rows={2}
+                style={{ flex: 1, background: "#07070c", border: "1px solid #1a1a28", borderRadius: 8, color: "#ededf5", fontSize: 11, fontFamily: "'Sora',sans-serif", padding: "7px 9px", resize: "none", outline: "none" }}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    const v = e.target.value.trim();
+                    if (v) { build(v, true); e.target.value = ""; }
+                  }
+                }}
+              />
+              <button onClick={() => {
+                const el = document.getElementById("editInput");
+                if (el && el.value.trim()) { build(el.value.trim(), true); el.value = ""; }
+              }} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "#7c5cfc", color: "#fff", fontSize: 14, cursor: "pointer", flexShrink: 0 }}>↑</button>
+            </div>
+          </div>
         </div>
-        <h2 style={{ fontSize:22, fontWeight:700, marginBottom:8, background:"linear-gradient(135deg,var(--ac),var(--ac2))", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Oluşturuluyor</h2>
-        <p style={{ fontSize:13, color:"var(--t3)", marginBottom:24 }}>Yapay zeka uygulamanızı kodluyor…</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:10, textAlign:"left" }}>
-          {steps.map((s, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:10, animation:`fadeUp .4s ease ${i * .1}s both` }}>
-              <div style={{ width:24, height:24, borderRadius:8, background: s.d ? "var(--g1s)" : "var(--b3)", border:`1.5px solid ${s.d ? "var(--g1)" : "var(--br)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color: s.d ? "var(--g1)" : "var(--t3)", transition:"all .3s" }}>{s.d ? "✓" : <span style={{ width:8, height:8, borderRadius:"50%", border:"2px solid var(--t3)", borderTopColor:"var(--ac)", animation:"spin .8s linear infinite", display:"inline-block" }} />}</div>
-              <span style={{ fontSize:14, color: s.d ? "var(--t1)" : "var(--t3)", fontWeight: s.d ? 500 : 400, transition:"all .3s" }}>{s.l}</span>
+      )}
+
+      {/* Main preview */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "7px 14px", borderBottom: "1px solid #1a1a28", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0a0a12", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {!sideOpen && <button onClick={() => setSideOpen(true)} className="hv" style={{ background: "none", border: "1px solid #1a1a28", color: "#9898b8", cursor: "pointer", padding: "4px 10px", borderRadius: 7, fontSize: 14 }}>☰</button>}
+            <div style={{ display: "flex", background: "#07070c", borderRadius: 8, border: "1px solid #1a1a28", overflow: "hidden" }}>
+              <button onClick={() => setCodeView(false)} style={{ padding: "5px 14px", border: "none", fontSize: 12, fontWeight: 500, fontFamily: "'Sora',sans-serif", cursor: "pointer", background: !codeView ? "#7c5cfc" : "transparent", color: !codeView ? "#fff" : "#55556e", transition: "all .2s" }}>Önizleme</button>
+              <button onClick={() => setCodeView(true)} style={{ padding: "5px 14px", border: "none", fontSize: 12, fontWeight: 500, fontFamily: "'Sora',sans-serif", cursor: "pointer", background: codeView ? "#7c5cfc" : "transparent", color: codeView ? "#fff" : "#55556e", transition: "all .2s" }}>{"</>"} Kod</button>
             </div>
-          ))}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => preview && dl(preview.code)} className="hv" style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #1a1a28", background: "transparent", color: "#9898b8", cursor: "pointer", fontSize: 12 }}>⬇ İndir</button>
+            <button onClick={() => { if (preview) { const w = window.open(); w.document.write(preview.code); w.document.close(); } }} className="hv" style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #1a1a28", background: "transparent", color: "#9898b8", cursor: "pointer", fontSize: 12 }}>↗ Aç</button>
+          </div>
         </div>
-      </div>
-    </div>
-  );
-
-  // ════════════════════════════════════════
-  // PREVIEW
-  // ════════════════════════════════════════
-  if (pg === "preview" && code) return (
-    <div style={{ height:"100vh", background:"var(--b1)" }}>
-      <style>{G}</style><Toast /><PriceModal /><PayModal /><LogModal />
-      <div style={{ display:"flex", height:"100vh", overflow:"hidden" }}>
-        {/* Sidebar */}
-        {side && (
-          <div style={{ width:280, minWidth:280, background:"var(--b2)", borderRight:"1px solid var(--br)", display:"flex", flexDirection:"column" }}>
-            <div style={{ padding:"12px 14px", borderBottom:"1px solid var(--br)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <div onClick={() => setPg("home")} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
-                <div style={{ width:28, height:28, borderRadius:8, background:"linear-gradient(135deg,var(--ac),var(--ac2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, animation:"glow 3s ease infinite" }}>⚡</div>
-                <span style={{ fontWeight:700, fontSize:14 }}>AppForge</span>
-              </div>
-              <div style={{ display:"flex", gap:4 }}>
-                <button onClick={handleLogout} className="hv" title="Çıkış" style={{ background:"none", border:"none", color:"var(--t3)", cursor:"pointer", fontSize:13, padding:"2px 6px", borderRadius:6 }}>⏻</button>
-                <button className="hv" onClick={() => setSide(false)} style={{ background:"none", border:"none", color:"var(--t3)", cursor:"pointer", fontSize:16, padding:"2px 6px", borderRadius:6 }}>✕</button>
-              </div>
-            </div>
-            {/* Credits */}
-            <div style={{ padding:"10px 14px", borderBottom:"1px solid var(--br)" }}>
-              <CreditBar compact />
-            </div>
-            {/* New */}
-            <div style={{ padding:"8px 12px" }}><button onClick={() => { setPg("home"); setPrompt(""); setCode(""); setHist([]); setTestRes(null); }} className="hv" style={{ width:"100%", padding:9, borderRadius:10, border:"1px dashed var(--br)", background:"transparent", color:"var(--t2)", cursor:"pointer", fontFamily:"'Sora'", fontSize:12, fontWeight:500 }}>＋ Yeni Proje</button></div>
-            {/* Projects */}
-            <div style={{ flex:1, overflowY:"auto", padding:"0 10px" }}>
-              <div style={{ fontSize:10, fontWeight:600, color:"var(--t3)", textTransform:"uppercase", letterSpacing:2, padding:"6px 8px" }}>Projeler</div>
-              {projs.map(p => (
-                <div key={p.id} className={`pj ${p.id === actProj ? "on" : ""}`} onClick={() => { setActProj(p.id); setCode(p.code); setTestRes(null); }} style={{ padding:"9px 11px", borderRadius:8, cursor:"pointer", marginBottom:3, border:"1px solid transparent" }}>
-                  <div style={{ fontSize:12, fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.name}</div>
-                  <div style={{ fontSize:9, color:"var(--t3)" }}>{p.date}</div>
-                </div>
-              ))}
-            </div>
-            {/* Edit */}
-            <div style={{ borderTop:"1px solid var(--br)", padding:12 }}>
-              <div style={{ fontSize:11, fontWeight:600, color:"var(--t3)", marginBottom:6 }}>✏️ Değişiklik Yap</div>
-              <textarea value={editTxt} onChange={e => setEditTxt(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (editTxt.trim()) { build(editTxt, true); setEditTxt(""); } } }} placeholder="Ne değiştirmek istiyorsun?" rows={2} style={{ width:"100%", background:"var(--b1)", border:"1px solid var(--br)", borderRadius:8, color:"var(--t1)", fontSize:11, fontFamily:"'Sora'", padding:"8px 10px", resize:"none" }} />
-              <button onClick={() => { if (editTxt.trim()) { build(editTxt, true); setEditTxt(""); } }} disabled={!editTxt.trim()} style={{ width:"100%", marginTop:6, padding:8, borderRadius:8, border:"none", background: editTxt.trim() ? "var(--ac)" : "var(--b3)", color: editTxt.trim() ? "#fff" : "var(--t3)", cursor: editTxt.trim() ? "pointer" : "default", fontFamily:"'Sora'", fontSize:11, fontWeight:600 }}>
-                Güncelle {freeLeft() > 0 ? "(ücretsiz)" : `(${COSTS.edit} kredi)`}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Main */}
-        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-          {/* Toolbar */}
-          <div style={{ padding:"6px 14px", borderBottom:"1px solid var(--br)", display:"flex", alignItems:"center", justifyContent:"space-between", background:"var(--b2)", flexWrap:"wrap", gap:6 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-              {!side && <button className="hv" onClick={() => setSide(true)} style={{ background:"none", border:"1px solid var(--br)", color:"var(--t2)", cursor:"pointer", padding:"4px 10px", borderRadius:7, fontSize:14 }}>☰</button>}
-              <div style={{ display:"flex", background:"var(--b1)", borderRadius:9, border:"1px solid var(--br)", overflow:"hidden" }}>
-                <button onClick={() => setCodeV(false)} style={{ padding:"5px 14px", border:"none", fontSize:12, fontWeight:500, fontFamily:"'Sora'", cursor:"pointer", background: !codeV ? "var(--ac)" : "transparent", color: !codeV ? "#fff" : "var(--t3)", transition:"all .2s" }}>Önizleme</button>
-                <button onClick={() => setCodeV(true)} style={{ padding:"5px 14px", border:"none", fontSize:12, fontWeight:500, fontFamily:"'Sora'", cursor:"pointer", background: codeV ? "var(--ac)" : "transparent", color: codeV ? "#fff" : "var(--t3)", transition:"all .2s" }}>{"</>"} Kod</button>
-              </div>
-            </div>
-            <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-              <button onClick={runTest} disabled={testing} className="hv" style={{ padding:"5px 14px", borderRadius:8, border:"1px solid var(--c1)", background:"var(--c1s)", color:"var(--c1)", cursor: testing ? "wait" : "pointer", fontSize:12, fontFamily:"'Sora'", fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
-                {testing ? <><span style={{ width:11, height:11, border:"2px solid var(--c1)", borderTopColor:"transparent", borderRadius:"50%", animation:"spin .8s linear infinite", display:"inline-block" }} />Test…</> : <>🧪 Test ({COSTS.test})</>}
-              </button>
-              <button onClick={dl} className="hv" style={{ padding:"5px 12px", borderRadius:8, border:"1px solid var(--br)", background:"transparent", color:"var(--t2)", cursor:"pointer", fontSize:12, fontFamily:"'Sora'", fontWeight:500 }}>⬇ İndir</button>
-              <button onClick={() => { const w = window.open(); w.document.write(code); w.document.close(); }} className="hv" style={{ padding:"5px 12px", borderRadius:8, border:"1px solid var(--br)", background:"transparent", color:"var(--t2)", cursor:"pointer", fontSize:12, fontFamily:"'Sora'", fontWeight:500 }}>↗ Aç</button>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div style={{ flex:1, overflow:"hidden", position:"relative" }}>
-            {codeV ? (
-              <div style={{ height:"100%", overflow:"auto", background:"#08080e" }}>
-                <pre style={{ padding:20, fontSize:12, lineHeight:1.7, fontFamily:"'Fira Code',monospace", color:"#b4b4cc", whiteSpace:"pre-wrap", wordBreak:"break-all" }}>{code}</pre>
-              </div>
-            ) : (
-              <iframe ref={iframe} title="preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ width:"100%", height:"100%", border:"none", background:"#fff" }} />
-            )}
-            <TestPanel />
-          </div>
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          {codeView
+            ? <div style={{ height: "100%", overflow: "auto", background: "#08080e" }}><pre style={{ padding: 20, fontSize: 11, lineHeight: 1.7, fontFamily: "'Fira Code',monospace", color: "#b4b4cc", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{preview?.code || ""}</pre></div>
+            : <iframe srcDoc={preview?.code || ""} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ width: "100%", height: "100%", border: "none" }} title="preview" />
+          }
         </div>
       </div>
     </div>
