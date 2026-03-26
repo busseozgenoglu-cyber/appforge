@@ -234,6 +234,30 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("af_tok", JSON.stringify(tok)); } catch {} }, [tok]);
   useEffect(() => { try { localStorage.setItem("af_daily", JSON.stringify(daily)); } catch {} }, [daily]);
 
+  const notify = (m, t = "info") => { setToast({ m, t }); setTimeout(() => setToast(null), 3500); };
+
+  const freeLeft = () => {
+    if (daily.d !== today()) return FREE_DAILY;
+    return Math.max(0, FREE_DAILY - daily.u);
+  };
+
+  const log = (a, c, n) => setTLog(p => [{ id: Date.now(), a, c, n, t: new Date().toLocaleString("tr-TR") }, ...p].slice(0, 80));
+
+  const spend = (amt, act) => {
+    const t = today();
+    let d = daily.d === t ? { ...daily } : { d: t, u: 0 };
+    if (d.u < FREE_DAILY && (act === "build" || act === "edit")) {
+      d = { ...d, u: d.u + 1 };
+      setDaily(d);
+      log(act, 0, "Ucretsiz");
+      return true;
+    }
+    if (tok < amt) { notify("Yetersiz kredi!", "error"); setShowPrice(true); return false; }
+    setTok(p => p - amt);
+    log(act, amt, amt + " kredi");
+    return true;
+  };
+
   const build = useCallback(async (pr, edit = false) => {
     if (!spend(edit ? COSTS.edit : COSTS.build, edit ? "edit" : "build")) return;
     setGen(true); setTestRes(null);
